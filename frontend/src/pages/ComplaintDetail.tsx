@@ -54,7 +54,12 @@ const monetaryTypes = [
   'third_party_payment',
 ]
 
-const apiBase = import.meta.env.VITE_API_BASE || 'http://localhost:8000/api'
+const apiBase =
+  import.meta.env.VITE_API_BASE ||
+  (() => {
+    const origin = window.location.origin.replace(/:5173$/, '')
+    return `${origin}:8000/api`
+  })()
 const attachmentBase = apiBase.replace(/\/api$/, '')
 export default function ComplaintDetail() {
   const { id } = useParams<{ id: string }>()
