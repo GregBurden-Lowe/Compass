@@ -20,7 +20,6 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@db:5432/complaints}
       SECRET_KEY: ${SECRET_KEY:-changeme}
       DEMO_MODE: ${DEMO_MODE:-false}
-      CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
     depends_on:
       - db
     ports:
@@ -31,6 +30,8 @@ services:
 
   frontend:
     build: ./frontend
+    env_file:
+      - ./frontend/.env
     environment:
       VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8000/api}
     depends_on:
