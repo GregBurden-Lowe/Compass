@@ -2,7 +2,9 @@ from datetime import timedelta, datetime, timezone
 import secrets
 
 import pyotp
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, verify_password, get_password_hash
@@ -29,7 +31,14 @@ def _verify_totp(secret: str | None, code: str | None) -> bool:
 
 
 @router.post("/token", response_model=LoginResponse)
-def login(form: LoginRequest, db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    form: LoginRequest,
+    db: Session = Depends(get_db),
+):
+    # Rate limiting is handled by slowapi middleware configured in main.py
+    # Global rate limit applies (configurable via RATE_LIMIT_PER_MINUTE)
+    user: User | None = db.query(User).filter(User.email == form.email).first()
     user: User | None = db.query(User).filter(User.email == form.email).first()
     if not user or not verify_password(form.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials")

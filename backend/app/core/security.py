@@ -6,8 +6,8 @@ from passlib.context import CryptContext
 
 from .config import get_settings
 
-# Using pbkdf2 to avoid platform-specific bcrypt backend issues in local/dev.
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+# Using bcrypt for production-grade password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def create_access_token(data: dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:

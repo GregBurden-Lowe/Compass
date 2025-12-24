@@ -1,6 +1,22 @@
 #!/bin/sh
 set -e
 alembic upgrade heads
-python -m app.seed.seed_data || true
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# Only seed data in demo/local environments
+if [ "${DEMO_MODE}" = "true" ] || [ "${ENVIRONMENT}" = "local" ]; then
+    echo "Running seed data (DEMO_MODE=${DEMO_MODE}, ENVIRONMENT=${ENVIRONMENT})"
+    python -m app.seed.seed_data || true
+else
+    echo "Skipping seed data in production environment"
+fi
+
+# Use multiple workers in production
+if [ "${ENVIRONMENT}" = "production" ]; then
+    WORKERS=${UVICORN_WORKERS:-4}
+    echo "Starting with ${WORKERS} workers"
+    uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WORKERS}
+else
+    echo "Starting in development mode (single worker)"
+    uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+fi
 
