@@ -1,30 +1,20 @@
-# Build stage
-FROM node:20-alpine AS builder
+# Build stage (Debian-based Node to avoid musl issues)
+FROM node:20-bookworm-slim AS builder
+
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json* ./
+# Install dependencies (include dev deps for build)
+COPY package.json package-lock.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy source code
+# Copy source and build
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Production stage with nginx
+# Production stage
 FROM nginx:alpine
-
-# Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Expose port 80
+# If you have a custom nginx config, copy it here:
+# COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
-
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]
