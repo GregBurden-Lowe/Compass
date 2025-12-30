@@ -29,6 +29,9 @@ class Settings(BaseSettings):
 
     max_upload_size_mb: int = Field(10, env="MAX_UPLOAD_SIZE_MB")
 
+    enable_api_docs: bool = Field(False, env="ENABLE_API_DOCS")
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+

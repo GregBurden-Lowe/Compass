@@ -29,8 +29,8 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         debug=settings.debug,
-        docs_url="/docs" if settings.environment != "production" else None,
-        redoc_url="/redoc" if settings.environment != "production" else None,
+        docs_url="/docs" if settings.enable_api_docs else None,
+        redoc_url="/redoc" if settings.enable_api_docs else None,
     )
     
     # Add rate limiter
