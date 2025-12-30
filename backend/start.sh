@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
-alembic upgrade heads
+
+echo "Running migrations..."
+alembic upgrade head
 
 # Only seed data in demo/local environments
 if [ "${DEMO_MODE}" = "true" ] || [ "${ENVIRONMENT}" = "local" ]; then
@@ -12,11 +14,10 @@ fi
 
 # Use multiple workers in production
 if [ "${ENVIRONMENT}" = "production" ]; then
-    WORKERS=${UVICORN_WORKERS:-4}
+    WORKERS=${UVICORN_WORKERS:-2}
     echo "Starting with ${WORKERS} workers"
-    uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WORKERS}
+    exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers "${WORKERS}"
 else
     echo "Starting in development mode (single worker)"
-    uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 fi
-
