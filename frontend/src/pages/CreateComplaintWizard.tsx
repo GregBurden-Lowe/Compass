@@ -115,7 +115,7 @@ export default function CreateComplaintWizard() {
       }
     }
 
-    navigate(`/complaints/${id}`)
+    navigate(`/complaints/${id}`, { state: { refreshDashboard: true } })
   }
 
   return (
