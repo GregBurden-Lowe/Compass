@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+mkdir -p storage/attachments
+
 echo "Running migrations..."
 alembic upgrade head
 
