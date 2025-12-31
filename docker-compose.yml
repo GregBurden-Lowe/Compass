@@ -24,6 +24,7 @@ services:
       DEBUG: "false"
       RATE_LIMIT_ENABLED: "false"
       CORS_ORIGINS: "*"
+      ENABLE_API_DOCS: "true"
     expose:
       - "8000"
 
