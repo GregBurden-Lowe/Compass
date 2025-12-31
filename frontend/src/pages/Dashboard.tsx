@@ -18,7 +18,7 @@ import {
   LinearProgress,
   Chip,
 } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { api } from '../api/client'
 import { Complaint } from '../types'
@@ -59,6 +59,7 @@ type QueueTab = 'mine' | 'unassigned' | 'breached' | 'oldest'
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { userId } = useAuth()
 
   const [metrics, setMetrics] = useState<DashboardMetricsV2 | null>(null)
@@ -69,8 +70,13 @@ export default function Dashboard() {
   const [loadingQueue, setLoadingQueue] = useState(false)
 
   useEffect(() => {
-    api.get<DashboardMetricsV2>('/complaints/metrics').then((res) => setMetrics(res.data))
-  }, [])
+    api
+      .get<DashboardMetricsV2>('/complaints/metrics', {
+        // Cache-bust in case any intermediate proxy/browser caches GETs.
+        params: { _: Date.now() },
+      })
+      .then((res) => setMetrics(res.data))
+  }, [location.key])
 
   // Load queue list based on tab (small, focused calls)
   useEffect(() => {
@@ -89,6 +95,8 @@ export default function Dashboard() {
               // Practical approach: fetch assigned and filter client-side.
               page: 1,
               page_size: 50,
+              // Cache-bust
+              _: Date.now(),
             },
           })
           const items = (res.data || []).filter((c: any) => c.status !== 'closed')
@@ -99,7 +107,7 @@ export default function Dashboard() {
         if (queueTab === 'unassigned') {
           // No handler_id filter exists for "unassigned" in your list endpoint,
           // so we pull first 50 and filter. If you add `unassigned=true`, you can make this perfect.
-          const res = await api.get<Complaint[]>('/complaints', { params: { page: 1, page_size: 100 } })
+          const res = await api.get<Complaint[]>('/complaints', { params: { page: 1, page_size: 100, _: Date.now() } })
           const items = (res.data || [])
             .filter((c: any) => c.status !== 'closed')
             .filter((c: any) => !c.assigned_handler_id)
@@ -113,6 +121,7 @@ export default function Dashboard() {
               overdue: true, // your backend treats this as ack_breached OR final_breached
               page: 1,
               page_size: 100,
+              _: Date.now(),
             },
           })
           const items = (res.data || []).filter((c: any) => c.status !== 'closed')
@@ -121,7 +130,7 @@ export default function Dashboard() {
         }
 
         if (queueTab === 'oldest') {
-          const res = await api.get<Complaint[]>('/complaints', { params: { page: 1, page_size: 100 } })
+          const res = await api.get<Complaint[]>('/complaints', { params: { page: 1, page_size: 100, _: Date.now() } })
           const items = (res.data || []).filter((c: any) => c.status !== 'closed')
           // Oldest by received_at
           items.sort((a: any, b: any) => dayjs(a.received_at).valueOf() - dayjs(b.received_at).valueOf())
@@ -134,7 +143,7 @@ export default function Dashboard() {
     }
 
     load()
-  }, [queueTab, userId])
+  }, [queueTab, userId, location.key])
 
   const asOfLabel = useMemo(() => {
     if (!metrics?.as_of) return null
