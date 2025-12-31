@@ -7,7 +7,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token, verify_password, get_password_hash
+from app.core.security import create_access_token, verify_and_update_password, get_password_hash
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import LoginRequest, LoginResponse, MFAEnrollResponse, MFAVerifyResponse
@@ -39,9 +39,17 @@ def login(
     # Rate limiting is handled by slowapi middleware configured in main.py
     # Global rate limit applies (configurable via RATE_LIMIT_PER_MINUTE)
     user: User | None = db.query(User).filter(User.email == form.email).first()
-    user: User | None = db.query(User).filter(User.email == form.email).first()
-    if not user or not verify_password(form.password, user.hashed_password):
+    if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials")
+
+    verified, new_hash = verify_and_update_password(form.password, user.hashed_password)
+    if not verified:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials")
+    if new_hash:
+        user.hashed_password = new_hash
+        db.add(user)
+        db.commit()
+        db.refresh(user)
 
     if user.mfa_enabled:
         # Allow recovery code or TOTP
