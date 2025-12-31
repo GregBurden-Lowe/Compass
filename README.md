@@ -18,18 +18,22 @@ FastAPI + React implementation for FCA DISP-aligned complaints handling: intake,
 - **ReadOnly** – view-only; cannot create or update complaints or users.
 
 ## Quick start (Docker)
-1. Copy environment template and adjust if needed:
+### Local (uses a local Postgres container)
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+```
+
+- Backend runs Alembic migrations and (in local/demo mode) seeds demo users/complaints on start.
+- Sign in via UI (http://localhost) using seeded users, e.g. `admin@example.com` / `password123`.
+
+### Production (DigitalOcean managed Postgres)
+1. Create `.env` in the project root and set at least:
+   - `DATABASE_URL=postgresql+psycopg2://...` (your DO DB)
+   - `SECRET_KEY=...` (stable across restarts)
+2. Deploy:
    ```bash
-   cp .env.example .env
+   docker compose up -d --build
    ```
-2. Build and start:
-   ```bash
-   docker compose up --build
-   ```
-   - Services: Postgres (`db`), FastAPI (`backend` on :8000), React (`frontend` on :5173).
-   - Backend runs Alembic migrations and seeds demo users/complaints on start.
-3. Sign in via UI (http://localhost:5173) using seeded users, e.g. `admin@example.com` / `password123`.
-4. API docs available at `http://localhost:8000/docs`.
 
 ## Local backend (optional)
 ```bash

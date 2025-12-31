@@ -3,6 +3,11 @@ set -e
 
 mkdir -p storage/attachments
 
+if [ -z "${DATABASE_URL}" ]; then
+    echo "ERROR: DATABASE_URL is not set. In production, set it in your .env to point at DigitalOcean Postgres."
+    exit 1
+fi
+
 echo "Running migrations..."
 alembic upgrade head
 

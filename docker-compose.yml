@@ -1,29 +1,14 @@
 services:
-  db:
-    image: postgres:15
-    container_name: compass-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: complaints
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-
   backend:
     image: compass-backend
     build:
       context: ./backend
     container_name: compass-backend
     restart: unless-stopped
-    depends_on:
-      - db
     environment:
-      # Defaults keep local-db compose working even if .env is missing.
-      # In production, prefer setting these in .env so restarts keep a stable SECRET_KEY (JWTs remain valid).
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@db:5432/complaints}
+      # Production: point this at your DigitalOcean managed Postgres in `.env`.
+      # Local dev: use `docker-compose.local.yml` which provides a local `db` service.
+      DATABASE_URL: ${DATABASE_URL}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEBUG: ${DEBUG:-false}
       DEMO_MODE: ${DEMO_MODE:-false}
@@ -57,9 +42,3 @@ services:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-
-volumes:
-  postgres_data:
-    # Pin the volume name so data persists even if the compose project name changes
-    # (e.g. running from a different directory or with a different COMPOSE_PROJECT_NAME).
-    name: compass_postgres_data

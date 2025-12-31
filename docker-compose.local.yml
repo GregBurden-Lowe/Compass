@@ -1,0 +1,30 @@
+services:
+  # Local development only: run Postgres in a container.
+  db:
+    image: postgres:15
+    container_name: compass-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: complaints
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/complaints
+      ENVIRONMENT: local
+      DEBUG: "true"
+      DEMO_MODE: "true"
+
+volumes:
+  postgres_data:
+    # Pin the volume name so it persists even if the compose project name changes.
+    name: compass_postgres_data
+
+
