@@ -19,12 +19,19 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/complaints
-      ENVIRONMENT: production
-      DEBUG: "false"
-      RATE_LIMIT_ENABLED: "false"
-      CORS_ORIGINS: "*"
-      ENABLE_API_DOCS: "true"
+      # Defaults keep local-db compose working even if .env is missing.
+      # In production, prefer setting these in .env so restarts keep a stable SECRET_KEY (JWTs remain valid).
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://postgres:postgres@db:5432/complaints}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEBUG: ${DEBUG:-false}
+      DEMO_MODE: ${DEMO_MODE:-false}
+      SECRET_KEY: ${SECRET_KEY:-}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-false}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-true}
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
     expose:
       - "8000"
 
