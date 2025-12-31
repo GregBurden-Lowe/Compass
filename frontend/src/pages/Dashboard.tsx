@@ -76,6 +76,11 @@ export default function Dashboard() {
         params: { _: Date.now() },
       })
       .then((res) => setMetrics(res.data))
+      .catch((err: any) => {
+        // 401 is handled globally (logout). Avoid unhandled promise rejection noise here.
+        if (err?.response?.status === 401) return
+        console.error('Failed to load dashboard metrics', err)
+      })
   }, [location.key])
 
   // Load queue list based on tab (small, focused calls)
@@ -137,6 +142,10 @@ export default function Dashboard() {
           setQueue(items.slice(0, 20))
           return
         }
+      } catch (err: any) {
+        // 401 is handled globally (logout). Avoid unhandled promise rejection noise here.
+        if (err?.response?.status === 401) return
+        console.error('Failed to load dashboard queue', err)
       } finally {
         setLoadingQueue(false)
       }
