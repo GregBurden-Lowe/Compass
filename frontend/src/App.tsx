@@ -34,8 +34,8 @@ import { api } from './api/client'
 
 export default function App() {
   const { token, role, name, login, logout, mustChangePassword } = useAuth()
-  const [email, setEmail] = useState('admin@example.com')
-  const [password, setPassword] = useState('password123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [mfaCode, setMfaCode] = useState('')
   const [recoveryCode, setRecoveryCode] = useState('')
@@ -210,7 +210,14 @@ export default function App() {
                     {loginError}
                   </Typography>
                 )}
-                <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth sx={{ mb: 2.5, mt: 1 }} />
+                <TextField
+                  label="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  fullWidth
+                  sx={{ mb: 2.5, mt: 1 }}
+                  autoComplete="email"
+                />
                 <TextField
                   label="Password"
                   type={showPassword ? 'text' : 'password'}
@@ -218,6 +225,7 @@ export default function App() {
                   onChange={(e) => setPassword(e.target.value)}
                   fullWidth
                   sx={{ mb: 3 }}
+                  autoComplete="current-password"
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
