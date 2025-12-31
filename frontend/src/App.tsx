@@ -11,11 +11,14 @@ import {
   DialogContent,
   DialogTitle,
   Alert,
+  IconButton,
+  InputAdornment,
   Stack,
   TextField,
   Toolbar,
   Typography,
 } from '@mui/material'
+import { Visibility, VisibilityOff } from '@mui/icons-material'
 import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import ComplaintsList from './pages/ComplaintsList'
@@ -33,6 +36,7 @@ export default function App() {
   const { token, role, name, login, logout, mustChangePassword } = useAuth()
   const [email, setEmail] = useState('admin@example.com')
   const [password, setPassword] = useState('password123')
+  const [showPassword, setShowPassword] = useState(false)
   const [mfaCode, setMfaCode] = useState('')
   const [recoveryCode, setRecoveryCode] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -209,11 +213,24 @@ export default function App() {
                 <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth sx={{ mb: 2.5, mt: 1 }} />
                 <TextField
                   label="Password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   fullWidth
                   sx={{ mb: 3 }}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          onClick={() => setShowPassword((v) => !v)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
                 {mfaStep && (
                   <>
