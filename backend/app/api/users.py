@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import secrets
 
@@ -28,11 +29,12 @@ def create_user(
     db: Session = Depends(get_db),
     _: User = Depends(require_roles([UserRole.admin])),
 ):
-    existing = db.query(User).filter(User.email == user_in.email).first()
+    normalized_email = (str(user_in.email) or "").strip().lower()
+    existing = db.query(User).filter(func.lower(User.email) == normalized_email).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists")
     user = User(
-        email=user_in.email,
+        email=normalized_email,
         full_name=user_in.full_name,
         role=user_in.role,
         is_active=user_in.is_active,
@@ -56,10 +58,11 @@ def update_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     if user_update.email is not None:
-        conflict = db.query(User).filter(User.email == user_update.email, User.id != user_id).first()
+        normalized_email = (str(user_update.email) or "").strip().lower()
+        conflict = db.query(User).filter(func.lower(User.email) == normalized_email, User.id != user_id).first()
         if conflict:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists")
-        user.email = user_update.email
+        user.email = normalized_email
     if user_update.full_name is not None:
         user.full_name = user_update.full_name
     if user_update.role is not None:

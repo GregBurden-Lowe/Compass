@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.core.security import create_access_token, verify_and_update_password, verify_password, get_password_hash
 from app.db.session import get_db
@@ -38,7 +39,8 @@ def login(
 ):
     # Rate limiting is handled by slowapi middleware configured in main.py
     # Global rate limit applies (configurable via RATE_LIMIT_PER_MINUTE)
-    user: User | None = db.query(User).filter(User.email == form.email).first()
+    email = (str(form.email) or "").strip().lower()
+    user: User | None = db.query(User).filter(func.lower(User.email) == email).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials")
 
