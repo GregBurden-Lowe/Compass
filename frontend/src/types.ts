@@ -7,6 +7,7 @@ export interface User {
   role: UserRole
   is_active: boolean
   mfa_enabled: boolean
+  must_change_password?: boolean
   created_at: string
 }
 
@@ -15,6 +16,7 @@ export interface LoginResponse {
   expires_at: string
   mfa_enrollment_required: boolean
   mfa_remaining_skips: number
+  must_change_password?: boolean
 }
 
 export interface ReferenceItem {

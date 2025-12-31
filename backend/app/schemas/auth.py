@@ -24,6 +24,12 @@ class LoginResponse(Token):
     expires_at: datetime
     mfa_enrollment_required: bool = False
     mfa_remaining_skips: int = 0
+    must_change_password: bool = False
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 class MFAEnrollResponse(BaseModel):

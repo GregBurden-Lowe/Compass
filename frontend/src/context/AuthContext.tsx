@@ -2,17 +2,18 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { UserRole } from '../types'
 
-type AuthState = { token: string | null; role: UserRole | null; name: string | null; userId: string | null }
+type AuthState = { token: string | null; role: UserRole | null; name: string | null; userId: string | null; mustChangePassword: boolean }
 
 type AuthContextValue = AuthState & {
   login: (email: string, password: string, mfaCode?: string, recoveryCode?: string) => Promise<any>
   logout: () => void
+  refreshMe: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [state, setState] = useState<AuthState>({ token: null, role: null, name: null, userId: null })
+  const [state, setState] = useState<AuthState>({ token: null, role: null, name: null, userId: null, mustChangePassword: false })
 
   useEffect(() => {
     const load = async () => {
@@ -23,7 +24,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Demo mode stores a fake token; don't validate against backend.
       if (import.meta.env.VITE_DEMO_MODE === 'true') {
-        if (token && role) setState({ token, role, name, userId })
+        if (token && role) setState({ token, role, name, userId, mustChangePassword: false })
         return
       }
 
@@ -37,22 +38,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           localStorage.setItem('role', validatedRole)
           localStorage.setItem('name', me.data.full_name)
           localStorage.setItem('userId', me.data.id)
-          setState({ token, role: validatedRole, name: me.data.full_name, userId: me.data.id })
+          setState({
+            token,
+            role: validatedRole,
+            name: me.data.full_name,
+            userId: me.data.id,
+            mustChangePassword: !!me.data.must_change_password,
+          })
           return
         } catch {
           localStorage.clear()
-          setState({ token: null, role: null, name: null, userId: null })
+          setState({ token: null, role: null, name: null, userId: null, mustChangePassword: false })
           return
         }
       }
 
       // No token: clear any partial/stale state.
       if (role || name || userId) localStorage.clear()
-      setState({ token: null, role: null, name: null, userId: null })
+      setState({ token: null, role: null, name: null, userId: null, mustChangePassword: false })
     }
 
     load()
   }, [])
+
+  const refreshMe = async () => {
+    const token = localStorage.getItem('token')
+    if (!token || import.meta.env.VITE_DEMO_MODE === 'true') return
+    const me = await api.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+    const validatedRole = me.data.role as UserRole
+    localStorage.setItem('role', validatedRole)
+    localStorage.setItem('name', me.data.full_name)
+    localStorage.setItem('userId', me.data.id)
+    setState({
+      token,
+      role: validatedRole,
+      name: me.data.full_name,
+      userId: me.data.id,
+      mustChangePassword: !!me.data.must_change_password,
+    })
+  }
 
   const login = async (email: string, password: string, mfaCode?: string, recoveryCode?: string) => {
     if (import.meta.env.VITE_DEMO_MODE === 'true') {
@@ -60,7 +84,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.setItem('role', 'admin')
       localStorage.setItem('name', 'Demo User')
       localStorage.setItem('userId', 'demo')
-      setState({ token: 'demo', role: 'admin', name: 'Demo User', userId: 'demo' })
+      setState({ token: 'demo', role: 'admin', name: 'Demo User', userId: 'demo', mustChangePassword: false })
       return { mfa_enrollment_required: false, mfa_remaining_skips: 0 }
     }
     const res = await api.post('/auth/token', { email, password, mfa_code: mfaCode, recovery_code: recoveryCode })
@@ -71,16 +95,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('role', role)
     localStorage.setItem('name', me.data.full_name)
     localStorage.setItem('userId', me.data.id)
-    setState({ token, role, name: me.data.full_name, userId: me.data.id })
+    setState({ token, role, name: me.data.full_name, userId: me.data.id, mustChangePassword: !!me.data.must_change_password })
     return res.data
   }
 
   const logout = () => {
     localStorage.clear()
-    setState({ token: null, role: null, name: null, userId: null })
+    setState({ token: null, role: null, name: null, userId: null, mustChangePassword: false })
   }
 
-  return <AuthContext.Provider value={{ ...state, login, logout }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ ...state, login, logout, refreshMe }}>{children}</AuthContext.Provider>
 }
 
 export const useAuth = () => {

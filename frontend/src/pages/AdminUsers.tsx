@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react'
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   MenuItem,
   Stack,
@@ -46,6 +51,7 @@ export default function AdminUsers() {
   const [error, setError] = useState<string | null>(null)
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
   const [recoveryCodes, setRecoveryCodes] = useState<Record<string, string[]>>({})
+  const [resetDialog, setResetDialog] = useState<{ open: boolean; email: string; tempPassword: string } | null>(null)
   const [form, setForm] = useState<CreateUserForm>({
     email: '',
     full_name: '',
@@ -111,6 +117,20 @@ export default function AdminUsers() {
     }
   }
 
+  const resetPassword = async (id: string, email: string) => {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await api.post<{ temporary_password: string }>(`/users/${id}/reset-password`)
+      setResetDialog({ open: true, email, tempPassword: res.data.temporary_password })
+      await loadUsers()
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Failed to reset password')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const fetchRecoveryCodes = async (id: string) => {
     setLoadingCodes(true)
     setError(null)
@@ -141,6 +161,37 @@ export default function AdminUsers() {
       <Typography variant="h5" gutterBottom>
         User management
       </Typography>
+      {resetDialog?.open && (
+        <Dialog open onClose={() => setResetDialog(null)} maxWidth="sm" fullWidth>
+          <DialogTitle>Password reset</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Alert severity="warning">
+                This user will be forced to change their password on next login. Copy the temporary password and email it to them.
+              </Alert>
+              <Typography variant="body2">
+                User: <strong>{resetDialog.email}</strong>
+              </Typography>
+              <TextField label="Temporary password" value={resetDialog.tempPassword} fullWidth InputProps={{ readOnly: true }} />
+              <Button
+                variant="outlined"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(resetDialog.tempPassword)
+                  } catch {
+                    // ignore
+                  }
+                }}
+              >
+                Copy to clipboard
+              </Button>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setResetDialog(null)}>Done</Button>
+          </DialogActions>
+        </Dialog>
+      )}
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
         <Card sx={{ flex: 1 }}>
           <CardContent>
@@ -201,6 +252,9 @@ export default function AdminUsers() {
                         <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                           <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
                             <Switch checked={u.is_active} onChange={(e) => updateUser(u.id, { is_active: e.target.checked })} size="small" />
+                            <Button variant="outlined" size="small" onClick={() => resetPassword(u.id, u.email)} disabled={saving}>
+                              Reset password
+                            </Button>
                             <Button variant="outlined" size="small" onClick={() => resetMfa(u.id)} disabled={saving}>
                               Reset MFA
                             </Button>

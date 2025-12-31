@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+import secrets
 
 from app.api.deps import get_current_user, require_roles
 from app.core.security import get_password_hash
@@ -72,5 +73,25 @@ def update_user(
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.post("/{user_id}/reset-password")
+def reset_password(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles([UserRole.admin])),
+):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Generate a temp password the admin can email to the user.
+    # token_urlsafe can include '-' and '_' which are fine for passwords.
+    temp_password = secrets.token_urlsafe(9)
+    user.hashed_password = get_password_hash(temp_password)
+    user.must_change_password = True
+    db.add(user)
+    db.commit()
+    return {"temporary_password": temp_password}
 
 

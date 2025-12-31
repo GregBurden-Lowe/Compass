@@ -11,6 +11,7 @@ class UserBase(BaseModel):
     is_active: bool = True
     mfa_enabled: bool = False
     mfa_skip_count: int = 0
+    must_change_password: bool = False
 
 
 class UserCreate(UserBase):

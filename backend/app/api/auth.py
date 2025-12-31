@@ -7,10 +7,10 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
-from app.core.security import create_access_token, verify_and_update_password, get_password_hash
+from app.core.security import create_access_token, verify_and_update_password, verify_password, get_password_hash
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import LoginRequest, LoginResponse, MFAEnrollResponse, MFAVerifyResponse
+from app.schemas.auth import ChangePasswordRequest, LoginRequest, LoginResponse, MFAEnrollResponse, MFAVerifyResponse
 from app.schemas.user import UserOut
 from app.core.config import get_settings
 from app.api.deps import get_current_user, require_roles
@@ -85,12 +85,30 @@ def login(
         expires_at=expire_time,
         mfa_enrollment_required=not user.mfa_enabled,
         mfa_remaining_skips=remaining_skips,
+        must_change_password=bool(getattr(user, "must_change_password", False)),
     )
 
 
 @router.get("/me", response_model=UserOut)
 def read_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/password/change")
+def change_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+    if not payload.new_password or len(payload.new_password) < 8:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password must be at least 8 characters")
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    current_user.must_change_password = False
+    db.add(current_user)
+    db.commit()
+    return {"status": "ok"}
 
 
 @router.get("/mfa/status")

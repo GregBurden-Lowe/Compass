@@ -16,20 +16,21 @@ import {
   Toolbar,
   Typography,
 } from '@mui/material'
-import { Link, Route, Routes, useNavigate } from 'react-router-dom'
+import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import ComplaintsList from './pages/ComplaintsList'
 import ComplaintDetail from './pages/ComplaintDetail'
 import CreateComplaintWizard from './pages/CreateComplaintWizard'
 import AdminUsers from './pages/AdminUsers'
 import ReferenceData from './pages/ReferenceData'
+import Profile from './pages/Profile'
 import { useAuth } from './context/AuthContext'
 import { QRCodeSVG } from 'qrcode.react'
 const logo = new URL('./assets/compass-logo.png', import.meta.url).href
 import { api } from './api/client'
 
 export default function App() {
-  const { token, role, name, login, logout } = useAuth()
+  const { token, role, name, login, logout, mustChangePassword } = useAuth()
   const [email, setEmail] = useState('admin@example.com')
   const [password, setPassword] = useState('password123')
   const [mfaCode, setMfaCode] = useState('')
@@ -42,6 +43,7 @@ export default function App() {
   const [remainingSkips, setRemainingSkips] = useState(0)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
 
   // If no token is present, surface a gentle prompt to log in.
   useEffect(() => {
@@ -51,6 +53,14 @@ export default function App() {
       setShowLoginPrompt(false)
     }
   }, [token])
+
+  // If an admin resets a user's password, force them to change it on next login.
+  useEffect(() => {
+    if (!token) return
+    if (!mustChangePassword) return
+    if (location.pathname === '/profile') return
+    navigate('/profile', { replace: true, state: { forced: true } })
+  }, [token, mustChangePassword, location.pathname, navigate])
 
   const onLogin = async () => {
     setLoginError(null)
@@ -145,6 +155,9 @@ export default function App() {
                 <Button color="inherit" component={Link} to="/complaints" sx={{ fontWeight: 700, color: '#f8fafc' }}>
                   Complaints
                 </Button>
+                <Button color="inherit" component={Link} to="/profile" sx={{ fontWeight: 700, color: '#f8fafc' }}>
+                  Profile
+                </Button>
                 <Button
                   color="inherit"
                   component={Link}
@@ -232,6 +245,7 @@ export default function App() {
             <Route path="/complaints" element={<ComplaintsList />} />
             <Route path="/complaints/new" element={<CreateComplaintWizard />} />
             <Route path="/complaints/:id" element={<ComplaintDetail />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<AdminUsers />} />
             <Route path="/reference" element={<ReferenceData />} />
           </Routes>

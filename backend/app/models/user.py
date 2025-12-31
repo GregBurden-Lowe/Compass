@@ -16,6 +16,7 @@ class User(Base):
     totp_secret = Column(String(64), nullable=True)
     recovery_codes = Column(ARRAY(String), nullable=True)
     mfa_skip_count = Column(Integer, default=0, nullable=False)
+    must_change_password = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
