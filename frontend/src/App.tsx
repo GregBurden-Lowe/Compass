@@ -33,7 +33,7 @@ const logo = new URL('./assets/compass-logo.png', import.meta.url).href
 import { api } from './api/client'
 
 export default function App() {
-  const { token, role, name, login, logout, mustChangePassword } = useAuth()
+  const { token, role, name, login, logout, mustChangePassword, ready } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -57,6 +57,16 @@ export default function App() {
       setShowLoginPrompt(false)
     }
   }, [token])
+
+  // Auth gate: if there's no valid token, keep users on the sign-in screen.
+  // Wait until auth has finished initializing so we don't redirect users who
+  // have a token stored but haven't been loaded yet.
+  useEffect(() => {
+    if (!ready) return
+    if (token) return
+    if (location.pathname === '/') return
+    navigate('/', { replace: true })
+  }, [ready, token, location.pathname, navigate])
 
   // If an admin resets a user's password, force them to change it on next login.
   useEffect(() => {
