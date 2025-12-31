@@ -210,57 +210,65 @@ export default function App() {
                     {loginError}
                   </Typography>
                 )}
-                <TextField
-                  label="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  fullWidth
-                  sx={{ mb: 2.5, mt: 1 }}
-                  autoComplete="email"
-                />
-                <TextField
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  fullWidth
-                  sx={{ mb: 3 }}
-                  autoComplete="current-password"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label={showPassword ? 'Hide password' : 'Show password'}
-                          onClick={() => setShowPassword((v) => !v)}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
+                <Box
+                  component="form"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    onLogin()
                   }}
-                />
-                {mfaStep && (
-                  <>
-                    <TextField
-                      label="MFA code (6 digits)"
-                      value={mfaCode}
-                      onChange={(e) => setMfaCode(e.target.value)}
-                      fullWidth
-                      sx={{ mb: 2 }}
-                    />
-                    <TextField
-                      label="Recovery code (optional)"
-                      value={recoveryCode}
-                      onChange={(e) => setRecoveryCode(e.target.value)}
-                      fullWidth
-                      sx={{ mb: 3 }}
-                    />
-                  </>
-                )}
-                <Button variant="contained" fullWidth size="large" onClick={onLogin}>
-                  Login
-                </Button>
+                >
+                  <TextField
+                    label="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    fullWidth
+                    sx={{ mb: 2.5, mt: 1 }}
+                    autoComplete="email"
+                  />
+                  <TextField
+                    label="Password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    fullWidth
+                    sx={{ mb: 3 }}
+                    autoComplete="current-password"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            onClick={() => setShowPassword((v) => !v)}
+                            edge="end"
+                          >
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  {mfaStep && (
+                    <>
+                      <TextField
+                        label="MFA code (6 digits)"
+                        value={mfaCode}
+                        onChange={(e) => setMfaCode(e.target.value)}
+                        fullWidth
+                        sx={{ mb: 2 }}
+                      />
+                      <TextField
+                        label="Recovery code (optional)"
+                        value={recoveryCode}
+                        onChange={(e) => setRecoveryCode(e.target.value)}
+                        fullWidth
+                        sx={{ mb: 3 }}
+                      />
+                    </>
+                  )}
+                  <Button variant="contained" fullWidth size="large" type="submit">
+                    Login
+                  </Button>
+                </Box>
               </CardContent>
             </Card>
           </Box>
