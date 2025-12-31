@@ -49,3 +49,6 @@ services:
 
 volumes:
   postgres_data:
+    # Pin the volume name so data persists even if the compose project name changes
+    # (e.g. running from a different directory or with a different COMPOSE_PROJECT_NAME).
+    name: compass_postgres_data
