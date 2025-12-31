@@ -14,6 +14,8 @@ services:
 
   backend:
     image: compass-backend
+    build:
+      context: ./backend
     container_name: compass-backend
     restart: unless-stopped
     depends_on:
@@ -37,6 +39,8 @@ services:
 
   frontend:
     image: compass-frontend
+    build:
+      context: ./frontend
     container_name: compass-frontend
     restart: unless-stopped
     expose:
