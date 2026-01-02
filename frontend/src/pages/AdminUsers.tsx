@@ -206,61 +206,63 @@ export default function AdminUsers() {
                 {error}
               </Typography>
             )}
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Role</TableCell>
-                  <TableCell>MFA</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {users.map((u) => {
-                  const isExpanded = expandedUserId === u.id
-                  return (
-                    <React.Fragment key={u.id}>
-                      <TableRow
-                        hover
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => (isExpanded ? setExpandedUserId(null) : fetchRecoveryCodes(u.id))}
-                      >
-                        <TableCell>{u.email}</TableCell>
-                        <TableCell>{u.full_name}</TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <TextField
-                            select
-                            size="small"
-                            value={u.role}
-                            onChange={(e) => updateUser(u.id, { role: e.target.value as UserRole })}
-                          >
-                            {roleOptions.map((opt) => (
-                              <MenuItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        </TableCell>
-                        <TableCell>
-                          <Chip label={u.mfa_enabled ? 'Enabled' : 'Disabled'} color={u.mfa_enabled ? 'success' : 'default'} size="small" />
-                        </TableCell>
-                        <TableCell>
-                          <Chip label={u.is_active ? 'Active' : 'Disabled'} color={u.is_active ? 'success' : 'default'} size="small" />
-                        </TableCell>
-                        <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                          <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
-                            <Switch checked={u.is_active} onChange={(e) => updateUser(u.id, { is_active: e.target.checked })} size="small" />
-                            <Button variant="outlined" size="small" onClick={() => resetPassword(u.id, u.email)} disabled={saving}>
-                              Reset password
-                            </Button>
-                            <Button variant="outlined" size="small" onClick={() => resetMfa(u.id)} disabled={saving}>
-                              Reset MFA
-                            </Button>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table size="small" sx={{ minWidth: 1000 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ minWidth: 200 }}>Email</TableCell>
+                    <TableCell sx={{ minWidth: 150 }}>Name</TableCell>
+                    <TableCell sx={{ minWidth: 180 }}>Role</TableCell>
+                    <TableCell sx={{ minWidth: 100 }}>MFA</TableCell>
+                    <TableCell sx={{ minWidth: 100 }}>Status</TableCell>
+                    <TableCell align="right" sx={{ minWidth: 400 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {users.map((u) => {
+                    const isExpanded = expandedUserId === u.id
+                    return (
+                      <React.Fragment key={u.id}>
+                        <TableRow
+                          hover
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => (isExpanded ? setExpandedUserId(null) : fetchRecoveryCodes(u.id))}
+                        >
+                          <TableCell>{u.email}</TableCell>
+                          <TableCell>{u.full_name}</TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()} sx={{ py: 1 }}>
+                            <TextField
+                              select
+                              size="small"
+                              value={u.role}
+                              onChange={(e) => updateUser(u.id, { role: e.target.value as UserRole })}
+                              sx={{ minWidth: 160 }}
+                            >
+                              {roleOptions.map((opt) => (
+                                <MenuItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          </TableCell>
+                          <TableCell>
+                            <Chip label={u.mfa_enabled ? 'Enabled' : 'Disabled'} color={u.mfa_enabled ? 'success' : 'default'} size="small" />
+                          </TableCell>
+                          <TableCell>
+                            <Chip label={u.is_active ? 'Active' : 'Disabled'} color={u.is_active ? 'success' : 'default'} size="small" />
+                          </TableCell>
+                          <TableCell align="right" onClick={(e) => e.stopPropagation()} sx={{ py: 1 }}>
+                            <Stack direction="row" spacing={1.5} justifyContent="flex-end" alignItems="center" flexWrap="wrap">
+                              <Switch checked={u.is_active} onChange={(e) => updateUser(u.id, { is_active: e.target.checked })} size="small" />
+                              <Button variant="outlined" size="small" onClick={() => resetPassword(u.id, u.email)} disabled={saving}>
+                                Reset password
+                              </Button>
+                              <Button variant="outlined" size="small" onClick={() => resetMfa(u.id)} disabled={saving}>
+                                Reset MFA
+                              </Button>
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
                       {isExpanded && (
                         <TableRow>
                           <TableCell colSpan={6}>
@@ -293,20 +295,21 @@ export default function AdminUsers() {
                 })}
                 {users.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5}>{loading ? 'Loading...' : 'No users'}</TableCell>
+                    <TableCell colSpan={6}>{loading ? 'Loading...' : 'No users'}</TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
+            </Box>
           </CardContent>
         </Card>
 
-        <Card sx={{ width: { xs: '100%', md: 360 } }}>
+        <Card sx={{ width: { xs: '100%', md: 400 } }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
               Create user
             </Typography>
-            <Stack spacing={2}>
+            <Stack spacing={2.5}>
               <TextField
                 label="Email"
                 value={form.email}
