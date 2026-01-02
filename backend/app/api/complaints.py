@@ -545,7 +545,7 @@ def close_complaint(
     complaint_id: str,
     payload: CloseRequest | None = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager])),
+    current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager, UserRole.complaints_handler])),
 ):
     complaint = _get_complaint(db, complaint_id)
     try:
