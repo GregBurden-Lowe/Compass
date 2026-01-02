@@ -9,6 +9,8 @@ RUN npm ci
 
 # Copy source and build
 COPY . .
+# Increase Node memory limit for build on low-resource servers
+ENV NODE_OPTIONS="--max-old-space-size=1024"
 RUN npm run build
 
 # Production stage
