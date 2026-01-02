@@ -725,3 +725,16 @@ def add_redress(
     db.refresh(payment)
     return payment
 
+
+@router.delete("/{complaint_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_complaint(
+    complaint_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.admin])),
+):
+    """Delete a complaint. Admin only. This will cascade delete all related records."""
+    complaint = _get_complaint(db, complaint_id)
+    db.delete(complaint)
+    db.commit()
+    return None
+

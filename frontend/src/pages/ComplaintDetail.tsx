@@ -1,5 +1,5 @@
 import { useEffect, useState, ChangeEvent } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   Box,
   Button,
@@ -63,6 +63,7 @@ const apiBase =
 const attachmentBase = apiBase.replace(/\/api$/, '')
 export default function ComplaintDetail() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [complaint, setComplaint] = useState<Complaint | null>(null)
   const [tab, setTab] = useState(0)
   const { role, name, userId } = useAuth()
@@ -96,6 +97,8 @@ export default function ComplaintDetail() {
   const [showEscalateDialog, setShowEscalateDialog] = useState(false)
   const [escalateManagerId, setEscalateManagerId] = useState<string>('')
   const [closingNonReportable, setClosingNonReportable] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [closingStandard, setClosingStandard] = useState(false)
   const [closeDialogOpen, setCloseDialogOpen] = useState(false)
   const [closeDialogType, setCloseDialogType] = useState<'standard' | 'non_reportable'>('standard')
@@ -315,6 +318,21 @@ export default function ComplaintDetail() {
     setCloseDialogOpen(true)
   }
 
+  const handleDelete = async () => {
+    if (!id) return
+    setDeleting(true)
+    try {
+      await api.delete(`/complaints/${id}`)
+      navigate('/complaints')
+    } catch (err: any) {
+      console.error('Failed to delete complaint', err)
+      alert(err?.response?.data?.detail || 'Failed to delete complaint')
+    } finally {
+      setDeleting(false)
+      setShowDeleteDialog(false)
+    }
+  }
+
   if (!complaint) return <Typography>Loading...</Typography>
 
   return (
@@ -412,6 +430,14 @@ export default function ComplaintDetail() {
               disabled={!users.length}
             >
               Assign to me
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              color="error"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              Delete
             </Button>
           </Stack>
         )}
@@ -1127,6 +1153,27 @@ export default function ComplaintDetail() {
               : closingStandard
               ? 'Closing...'
               : 'Confirm close'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)}>
+        <DialogTitle>Delete Complaint</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Are you sure you want to delete this complaint? This action cannot be undone.
+            All related data (communications, events, outcomes, redress payments, etc.) will also be deleted.
+          </Alert>
+          <Typography variant="body2" color="text.secondary">
+            Complaint: {complaint?.reference}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDeleteDialog(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button onClick={handleDelete} color="error" variant="contained" disabled={deleting}>
+            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
