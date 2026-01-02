@@ -5,6 +5,7 @@
 ```bash
 cd ~/Compass
 git pull
+mkdir -p certbot/www
 docker compose up -d --build nginx
 ```
 
