@@ -22,6 +22,7 @@
 - **View events** - `GET /complaints/{id}/events` (all authenticated users)
 
 ### Redress
+- **Create redress payments** - `POST /complaints/{id}/redress`
 - **Update redress payments** - `PATCH /complaints/{id}/redress/{redress_id}` (update status, notes, etc.)
 
 ### Tasks
@@ -31,15 +32,15 @@
 - **View dashboard metrics** - `GET /complaints/metrics` (all authenticated users)
 - **List complaints** - `GET /complaints` (all authenticated users)
 
-## ❌ Permissions NOT Granted
-
-### Complaint Management
-- **Issue final response** - `POST /complaints/{id}/final-response` (requires admin/reviewer/complaints_manager)
-- **Reopen complaints** - `POST /complaints/{id}/reopen` (requires admin/reviewer/complaints_manager)
+### Final Response & Reopening
+- **Issue final response** - `POST /complaints/{id}/final-response`
+- **Reopen closed complaints** - `POST /complaints/{id}/reopen`
 
 ### Redress
-- **Create redress payments** - `POST /complaints/{id}/redress` (requires admin/reviewer/complaints_manager)
-  - Note: Can update existing redress payments, but cannot create new ones
+- **Create redress payments** - `POST /complaints/{id}/redress`
+- **Update redress payments** - `PATCH /complaints/{id}/redress/{redress_id}`
+
+## ❌ Permissions NOT Granted
 
 ### User Management
 - **Manage users** - All endpoints in `/users` (admin only)
@@ -74,9 +75,6 @@ Complaints handlers have comprehensive permissions to:
 - Escalate complaints
 
 They are restricted from:
-- Issuing final responses directly (though can do so via communication)
-- Reopening closed complaints
-- Creating new redress payments
 - Managing users or reference data
 - Assigning complaints to others (only self-assignment allowed)
 
