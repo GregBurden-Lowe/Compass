@@ -52,7 +52,7 @@ docker compose up -d --build nginx
 
 ## Step 4: Set Up SSL/TLS with Let's Encrypt
 
-### Option A: Using Certbot in Docker (Recommended)
+### Option A: Using Certbot (Recommended)
 
 1. Install certbot on your droplet:
    ```bash
@@ -107,17 +107,27 @@ docker compose up -d --build nginx
    docker compose up -d nginx
    ```
 
-### Option B: Using Certbot Docker Container
+### Option B: Using Certbot Docker Container (Alternative)
 
-Alternatively, you can use certbot in a Docker container:
+If you prefer not to install certbot directly, you can use it via Docker:
 
-```bash
-docker run -it --rm \
-  -v /etc/letsencrypt:/etc/letsencrypt \
-  -v /var/lib/letsencrypt:/var/lib/letsencrypt \
-  -p 80:80 \
-  certbot/certbot certonly --standalone -d compass.lpgapps.work
-```
+1. Stop nginx temporarily:
+   ```bash
+   docker compose stop nginx
+   ```
+
+2. Run certbot in Docker:
+   ```bash
+   docker run -it --rm \
+     -v /etc/letsencrypt:/etc/letsencrypt \
+     -v /var/lib/letsencrypt:/var/lib/letsencrypt \
+     -p 80:80 \
+     certbot/certbot certonly --standalone -d compass.lpgapps.work
+   ```
+
+3. Follow the prompts and certificates will be saved to `/etc/letsencrypt/live/compass.lpgapps.work/`
+
+4. Continue with Step 5 below to update docker-compose.yml
 
 ## Step 5: Auto-Renewal Setup
 
