@@ -234,9 +234,9 @@ export default function AdminUsers() {
                           sx={{ cursor: 'pointer' }}
                           onClick={() => (isExpanded ? setExpandedUserId(null) : fetchRecoveryCodes(u.id))}
                         >
-                          <TableCell>{u.email}</TableCell>
-                          <TableCell>{u.full_name}</TableCell>
-                          <TableCell onClick={(e) => e.stopPropagation()} sx={{ py: 1 }}>
+                        <TableCell sx={{ py: 0.5 }}>{u.email}</TableCell>
+                        <TableCell sx={{ py: 0.5 }}>{u.full_name}</TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()} sx={{ py: 0.5 }}>
                             <TextField
                               select
                               size="small"
@@ -251,15 +251,26 @@ export default function AdminUsers() {
                               ))}
                             </TextField>
                           </TableCell>
-                          <TableCell>
+                          <TableCell sx={{ py: 0.5 }}>
                             <Chip label={u.mfa_enabled ? 'Enabled' : 'Disabled'} color={u.mfa_enabled ? 'success' : 'default'} size="small" />
                           </TableCell>
-                          <TableCell>
+                          <TableCell sx={{ py: 0.5 }}>
                             <Chip label={u.is_active ? 'Active' : 'Disabled'} color={u.is_active ? 'success' : 'default'} size="small" />
                           </TableCell>
-                          <TableCell align="right" onClick={(e) => e.stopPropagation()} sx={{ py: 1 }}>
-                            <Stack direction="row" spacing={1.5} justifyContent="flex-end" alignItems="center" flexWrap="wrap">
-                              <Switch checked={u.is_active} onChange={(e) => updateUser(u.id, { is_active: e.target.checked })} size="small" />
+                          <TableCell align="right" onClick={(e) => e.stopPropagation()} sx={{ py: 0.5 }}>
+                            <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center" flexWrap="wrap">
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={u.is_active}
+                                    onChange={(e) => updateUser(u.id, { is_active: e.target.checked })}
+                                    size="small"
+                                  />
+                                }
+                                label={u.is_active ? 'Active' : 'Inactive'}
+                                labelPlacement="start"
+                                sx={{ margin: 0, mr: 1 }}
+                              />
                               <Button variant="outlined" size="small" onClick={() => resetPassword(u.id, u.email)} disabled={saving}>
                                 Reset password
                               </Button>
