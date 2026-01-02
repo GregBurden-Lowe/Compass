@@ -528,7 +528,7 @@ def set_outcome(
 def issue_final_response(
     complaint_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager])),
+    current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager, UserRole.complaints_handler])),
 ):
     complaint = _get_complaint(db, complaint_id)
     try:
@@ -605,7 +605,7 @@ def reopen_complaint(
     complaint_id: str,
     payload: ReopenRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager])),
+    current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager, UserRole.complaints_handler])),
 ):
     complaint = _get_complaint(db, complaint_id)
     service.reopen(db, complaint, str(current_user.id), payload.reason, payload.reopened_at)
@@ -701,7 +701,7 @@ def add_redress(
     complaint_id: str,
     payload: RedressCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager])),
+    current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager, UserRole.complaints_handler])),
 ):
     complaint = _get_complaint(db, complaint_id)
     try:
