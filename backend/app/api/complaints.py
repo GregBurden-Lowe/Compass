@@ -515,7 +515,7 @@ def set_outcome(
     complaint_id: str,
     payload: OutcomeCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager])),
+    current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager, UserRole.complaints_handler])),
 ):
     complaint = _get_complaint(db, complaint_id)
     outcome = service.record_outcome(db, complaint, payload.outcome, payload.notes, str(current_user.id))
