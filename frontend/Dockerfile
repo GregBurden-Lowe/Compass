@@ -7,11 +7,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy source files (excluding dist via .dockerignore)
+# Copy source files (dist is now included since we removed it from .dockerignore)
 COPY . .
-# Copy dist separately if it exists (pre-built from git)
-# This will fail silently if dist doesn't exist, which is fine
-COPY dist* ./dist/ 2>/dev/null || true
 # If dist/ already exists (from git), skip build; otherwise build
 RUN if [ -d "dist" ] && [ "$(ls -A dist 2>/dev/null)" ]; then \
       echo "Using pre-built dist from git, skipping build"; \
