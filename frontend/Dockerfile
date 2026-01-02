@@ -20,7 +20,7 @@ RUN if [ -d "dist" ] && [ "$(ls -A dist 2>/dev/null)" ]; then \
 # Production stage
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
-# If you have a custom nginx config, copy it here:
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom nginx config for SPA routing
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
