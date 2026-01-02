@@ -52,6 +52,7 @@ export default function AdminUsers() {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
   const [recoveryCodes, setRecoveryCodes] = useState<Record<string, string[]>>({})
   const [resetDialog, setResetDialog] = useState<{ open: boolean; email: string; tempPassword: string } | null>(null)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [form, setForm] = useState<CreateUserForm>({
     email: '',
     full_name: '',
@@ -83,6 +84,7 @@ export default function AdminUsers() {
     try {
       await api.post('/users', form)
       setForm({ email: '', full_name: '', password: '', role: 'complaints_handler', is_active: true })
+      setShowCreateDialog(false)
       await loadUsers()
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'Failed to create user')
@@ -192,15 +194,19 @@ export default function AdminUsers() {
           </DialogActions>
         </Dialog>
       )}
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-        <Card sx={{ flex: 1 }}>
-          <CardContent>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">Users</Typography>
+      <Card>
+        <CardContent>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">Users</Typography>
+            <Stack direction="row" spacing={1}>
+              <Button variant="contained" onClick={() => setShowCreateDialog(true)} disabled={saving}>
+                Create user
+              </Button>
               <Button onClick={loadUsers} disabled={loading || saving}>
                 Refresh
               </Button>
             </Stack>
+          </Stack>
             {error && (
               <Typography color="error" variant="body2" sx={{ mb: 2 }}>
                 {error}
@@ -304,64 +310,74 @@ export default function AdminUsers() {
           </CardContent>
         </Card>
 
-        <Card sx={{ width: { xs: '100%', md: 400 } }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Create user
-            </Typography>
-            <Stack spacing={2.5}>
-              <TextField
-                label="Email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label="Full name"
-                value={form.full_name}
-                onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label="Password"
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                fullWidth
-                size="small"
-              />
-              <TextField
-                label="Role"
-                select
-                value={form.role}
-                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
-                size="small"
-              >
-                {roleOptions.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={form.is_active}
-                    onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
-                    size="small"
-                  />
-                }
-                label="Active"
-              />
-              <Button variant="contained" onClick={createUser} disabled={saving || loading}>
-                Create user
-              </Button>
-            </Stack>
-          </CardContent>
-        </Card>
-      </Stack>
+      <Dialog open={showCreateDialog} onClose={() => setShowCreateDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create user</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            {error && (
+              <Alert severity="error" onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
+            <TextField
+              label="Email"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              fullWidth
+              size="small"
+              autoComplete="email"
+            />
+            <TextField
+              label="Full name"
+              value={form.full_name}
+              onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="Password"
+              type="password"
+              value={form.password}
+              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+              fullWidth
+              size="small"
+              autoComplete="new-password"
+            />
+            <TextField
+              label="Role"
+              select
+              value={form.role}
+              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
+              fullWidth
+              size="small"
+            >
+              {roleOptions.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.is_active}
+                  onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
+                  size="small"
+                />
+              }
+              label="Active"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowCreateDialog(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={createUser} disabled={saving || loading}>
+            {saving ? 'Creating...' : 'Create user'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
