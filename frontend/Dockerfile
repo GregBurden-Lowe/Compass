@@ -7,11 +7,15 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy source and build
+# Copy source and build (or use pre-built dist if it exists)
 COPY . .
-# Increase Node memory limit for build on low-resource servers
-ENV NODE_OPTIONS="--max-old-space-size=1024"
-RUN npm run build
+# If dist/ already exists (from git), skip build; otherwise build
+RUN if [ -d "dist" ] && [ "$(ls -A dist)" ]; then \
+      echo "Using pre-built dist from git, skipping build"; \
+    else \
+      echo "Building frontend..."; \
+      NODE_OPTIONS="--max-old-space-size=1024" npm run build; \
+    fi
 
 # Production stage
 FROM nginx:alpine
