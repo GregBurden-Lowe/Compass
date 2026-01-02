@@ -1,5 +1,5 @@
 node_modules
-dist
+# dist - removed so pre-built dist can be copied when present
 .vite
 .cache
 .DS_Store
