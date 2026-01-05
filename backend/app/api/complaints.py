@@ -639,12 +639,14 @@ async def add_communication(
         storage_root = Path("storage/attachments")
         storage_root.mkdir(parents=True, exist_ok=True)
         saved_files = []
-        # Handle both single file and list of files
-        file_list = []
+        # FastAPI expects List[UploadFile] but may receive a single UploadFile
+        # Normalize to always work with a list
+        file_list: List[UploadFile] = []
         if files:
             if isinstance(files, list):
                 file_list = files
             else:
+                # Single file received, wrap in list
                 file_list = [files]
         for upload in file_list:
             # Check file size
