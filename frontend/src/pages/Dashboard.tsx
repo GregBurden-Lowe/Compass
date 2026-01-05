@@ -60,7 +60,7 @@ type QueueTab = 'mine' | 'unassigned' | 'breached' | 'oldest'
 export default function Dashboard() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { userId } = useAuth()
+  const { userId, token } = useAuth()
 
   const [metrics, setMetrics] = useState<DashboardMetricsV2 | null>(null)
   const [queue, setQueue] = useState<Complaint[]>([])
@@ -70,6 +70,10 @@ export default function Dashboard() {
   const [loadingQueue, setLoadingQueue] = useState(false)
 
   useEffect(() => {
+    // Don't load if not authenticated (prevents API calls during 401 redirect)
+    // Don't use location.key as it changes on 401 redirects, causing loops
+    if (!token) return
+    
     api
       .get<DashboardMetricsV2>('/complaints/metrics', {
         // Cache-bust in case any intermediate proxy/browser caches GETs.
@@ -81,11 +85,13 @@ export default function Dashboard() {
         if (err?.response?.status === 401) return
         console.error('Failed to load dashboard metrics', err)
       })
-  }, [location.key])
+  }, [token, location.pathname])
 
   // Load queue list based on tab (small, focused calls)
   useEffect(() => {
-    if (!userId) return
+    // Don't load if not authenticated (prevents API calls during 401 redirect)
+    // Don't use location.key as it changes on 401 redirects, causing loops
+    if (!userId || !token) return
 
     const load = async () => {
       setLoadingQueue(true)
@@ -152,7 +158,7 @@ export default function Dashboard() {
     }
 
     load()
-  }, [queueTab, userId, location.key])
+  }, [queueTab, userId, token, location.pathname])
 
   const asOfLabel = useMemo(() => {
     if (!metrics?.as_of) return null
