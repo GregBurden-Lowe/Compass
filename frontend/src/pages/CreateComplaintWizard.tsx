@@ -123,7 +123,26 @@ export default function CreateComplaintWizard() {
       } catch (err: any) {
         // Log error but continue - user can add communication manually if needed
         console.error('Failed to upload attachment during complaint creation', err)
-        const errorMsg = err?.response?.data?.detail || err?.message || 'Unknown error'
+        // Extract detailed error message from validation errors
+        let errorMsg = 'Unknown error'
+        if (err?.response?.data?.detail) {
+          const detail = err.response.data.detail
+          if (Array.isArray(detail)) {
+            // Validation errors are an array of error objects
+            const messages = detail.map((e: any) => {
+              const field = e.loc?.join('.') || 'field'
+              const msg = e.msg || 'validation error'
+              return `${field}: ${msg}`
+            })
+            errorMsg = messages.join('\n')
+          } else if (typeof detail === 'string') {
+            errorMsg = detail
+          } else {
+            errorMsg = JSON.stringify(detail)
+          }
+        } else if (err?.message) {
+          errorMsg = err.message
+        }
         alert(`Complaint created successfully, but attachment upload failed: ${errorMsg}. You can add it manually in the Communications tab.`)
       }
     }

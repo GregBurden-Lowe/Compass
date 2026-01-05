@@ -212,9 +212,28 @@ export default function ComplaintDetail() {
       setIsFinalResponse(false)
       load()
     } catch (err: any) {
-      const errorMsg = err?.response?.data?.detail || err?.message || 'Failed to add communication'
-      alert(`Error: ${errorMsg}`)
       console.error('Failed to add communication', err)
+      // Extract detailed error message from validation errors
+      let errorMsg = 'Failed to add communication'
+      if (err?.response?.data?.detail) {
+        const detail = err.response.data.detail
+        if (Array.isArray(detail)) {
+          // Validation errors are an array of error objects
+          const messages = detail.map((e: any) => {
+            const field = e.loc?.join('.') || 'field'
+            const msg = e.msg || 'validation error'
+            return `${field}: ${msg}`
+          })
+          errorMsg = messages.join('\n')
+        } else if (typeof detail === 'string') {
+          errorMsg = detail
+        } else {
+          errorMsg = JSON.stringify(detail)
+        }
+      } else if (err?.message) {
+        errorMsg = err.message
+      }
+      alert(`Error: ${errorMsg}`)
     } finally {
       setSaving(false)
     }
