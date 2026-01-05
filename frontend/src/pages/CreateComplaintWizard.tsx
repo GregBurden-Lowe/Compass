@@ -115,7 +115,8 @@ export default function CreateComplaintWizard() {
       formData.append('direction', 'inbound')
       formData.append('summary', `Initial complaint via ${payload.source}${channelFile.name ? ` (with attachment: ${channelFile.name})` : ''}`)
       formData.append('occurred_at', payload.received_at)
-      formData.append('is_final_response', 'false')
+      formData.append('is_final_response', 'false') // FastAPI Form() will parse this as boolean
+      // For multiple files, append each file with the same field name 'files'
       formData.append('files', channelFile)
       try {
         await api.post(`/complaints/${id}/communications`, formData)

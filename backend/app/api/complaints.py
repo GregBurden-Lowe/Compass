@@ -627,49 +627,61 @@ async def add_communication(
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
 ):
     from app.core.config import get_settings
-    settings = get_settings()
-    max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
+    import logging
+    logger = logging.getLogger(__name__)
     
-    complaint = _get_complaint(db, complaint_id)
-    storage_root = Path("storage/attachments")
-    storage_root.mkdir(parents=True, exist_ok=True)
-    saved_files = []
-    for upload in files or []:
-        # Check file size
-        content = await upload.read()
-        if len(content) > max_size_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"File {upload.filename} exceeds maximum size of {settings.max_upload_size_mb}MB"
+    try:
+        settings = get_settings()
+        max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
+        
+        complaint = _get_complaint(db, complaint_id)
+        storage_root = Path("storage/attachments")
+        storage_root.mkdir(parents=True, exist_ok=True)
+        saved_files = []
+        for upload in files or []:
+            # Check file size
+            content = await upload.read()
+            if len(content) > max_size_bytes:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"File {upload.filename} exceeds maximum size of {settings.max_upload_size_mb}MB"
+                )
+            safe_name = f"{utcnow().timestamp()}-{upload.filename}"
+            dest = storage_root / safe_name
+            with dest.open("wb") as f:
+                f.write(content)
+            saved_files.append(
+                {"file_name": upload.filename, "content_type": upload.content_type or "application/octet-stream", "storage_path": str(dest)}
             )
-        safe_name = f"{utcnow().timestamp()}-{upload.filename}"
-        dest = storage_root / safe_name
-        with dest.open("wb") as f:
-            f.write(content)
-        saved_files.append(
-            {"file_name": upload.filename, "content_type": upload.content_type or "application/octet-stream", "storage_path": str(dest)}
+        comm = service.add_communication_with_attachments(
+            db,
+            complaint=complaint,
+            channel=channel,
+            direction=direction,
+            summary=summary,
+            occurred_at=occurred_at,
+            is_final_response=is_final_response,
+            attachment_files=saved_files,
+            user_id=str(current_user.id),
         )
-    comm = service.add_communication_with_attachments(
-        db,
-        complaint=complaint,
-        channel=channel,
-        direction=direction,
-        summary=summary,
-        occurred_at=occurred_at,
-        is_final_response=is_final_response,
-        attachment_files=saved_files,
-        user_id=str(current_user.id),
-    )
-    if is_final_response:
-        if not complaint.outcome:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Outcome must be recorded before issuing final response",
-            )
-        service.issue_final_response(db, complaint, str(current_user.id))
-    db.commit()
-    db.refresh(comm)
-    return comm
+        if is_final_response:
+            if not complaint.outcome:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Outcome must be recorded before issuing final response",
+                )
+            service.issue_final_response(db, complaint, str(current_user.id))
+        db.commit()
+        db.refresh(comm)
+        return comm
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding communication: {type(e).__name__}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add communication: {str(e)}"
+        )
 
 
 @router.post("/{complaint_id}/tasks", response_model=TaskOut)
