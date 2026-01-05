@@ -60,7 +60,9 @@ const apiBase =
     const origin = window.location.origin.replace(/:5173$/, '')
     return `${origin}:8000/api`
   })()
-const attachmentBase = apiBase.replace(/\/api$/, '')
+// Attachment URLs are served from /attachments/ at the root level (via nginx proxy to backend)
+// Use absolute path from root, not relative to API base
+const attachmentBase = ''
 export default function ComplaintDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
