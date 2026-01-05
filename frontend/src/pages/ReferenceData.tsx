@@ -20,9 +20,10 @@ import {
   DialogActions,
   Alert,
 } from '@mui/material'
-import { Delete, Visibility, Download } from '@mui/icons-material'
+import { Delete, Visibility } from '@mui/icons-material'
 import { api } from '../api/client'
 import { ReferenceItem } from '../types'
+import { useAuth } from '../context/AuthContext'
 
 type Kind = 'products' | 'brokers' | 'insurers'
 
@@ -33,6 +34,7 @@ const labels: Record<Kind, string> = {
 }
 
 export default function ReferenceData() {
+  const { role } = useAuth()
   const [data, setData] = useState<Record<Kind, ReferenceItem[]>>({
     products: [],
     brokers: [],
@@ -191,14 +193,20 @@ const Section = ({ kind }: { kind: Kind }) => (
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [attachmentToDelete, setAttachmentToDelete] = useState<{ id: string; file_name: string } | null>(null)
 
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
+
   const loadAttachments = async () => {
     setLoadingAttachments(true)
-    setError(null)
+    setAttachmentError(null)
     try {
       const res = await api.get('/complaints/attachments/list', { params: { limit: 200 } })
       setAttachments(res.data.attachments || [])
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to load attachments')
+      const errorMsg = err?.response?.data?.detail || 'Failed to load attachments'
+      setAttachmentError(errorMsg)
+      console.error('Failed to load attachments:', err)
+      // Still show the section even if API fails (might be permission issue)
+      setAttachments([])
     } finally {
       setLoadingAttachments(false)
     }
@@ -251,20 +259,26 @@ const Section = ({ kind }: { kind: Kind }) => (
         <Section kind="brokers" />
         <Section kind="insurers" />
         
-        {/* Attachments Section */}
-        <Card>
-          <CardContent>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">Attachments</Typography>
-              <Button onClick={loadAttachments} disabled={loadingAttachments}>
-                Refresh
-              </Button>
-            </Stack>
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-                {error}
-              </Alert>
-            )}
+        {/* Attachments Section - Admin Only */}
+        {role === 'admin' && (
+          <Card>
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">Attachments</Typography>
+                <Button onClick={loadAttachments} disabled={loadingAttachments}>
+                  Refresh
+                </Button>
+              </Stack>
+              {attachmentError && (
+                <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setAttachmentError(null)}>
+                  {attachmentError}
+                  {attachmentError.includes('403') || attachmentError.includes('Forbidden') ? (
+                    <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                      Admin access required to view attachments.
+                    </Typography>
+                  ) : null}
+                </Alert>
+              )}
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -333,6 +347,7 @@ const Section = ({ kind }: { kind: Kind }) => (
             </Table>
           </CardContent>
         </Card>
+        )}
       </Stack>
 
       {/* Delete Confirmation Dialog */}
