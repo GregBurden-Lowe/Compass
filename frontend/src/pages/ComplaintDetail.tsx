@@ -211,6 +211,10 @@ export default function ComplaintDetail() {
       setOccurredAt(dayjs().format('YYYY-MM-DDTHH:mm'))
       setIsFinalResponse(false)
       load()
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.detail || err?.message || 'Failed to add communication'
+      alert(`Error: ${errorMsg}`)
+      console.error('Failed to add communication', err)
     } finally {
       setSaving(false)
     }

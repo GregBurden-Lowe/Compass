@@ -101,12 +101,13 @@ export default function CreateComplaintWizard() {
     if (channelFile) {
       const formData = new FormData()
       // Map source to communication channel (default to 'other' if not a standard channel)
+      // Note: CommunicationChannel enum only supports: phone, email, letter, web, third_party, other
       const channelMap: Record<string, string> = {
         'Email': 'email',
         'Letter': 'letter',
         'Phone': 'phone',
         'Web': 'web',
-        'In Person': 'in_person',
+        'In Person': 'other', // 'in_person' doesn't exist in enum, use 'other'
         'Other': 'other',
       }
       const channel = channelMap[payload.source] || 'other'
@@ -118,10 +119,11 @@ export default function CreateComplaintWizard() {
       formData.append('files', channelFile)
       try {
         await api.post(`/complaints/${id}/communications`, formData)
-      } catch (err) {
+      } catch (err: any) {
         // Log error but continue - user can add communication manually if needed
         console.error('Failed to upload attachment during complaint creation', err)
-        alert('Complaint created successfully, but attachment upload failed. You can add it manually in the Communications tab.')
+        const errorMsg = err?.response?.data?.detail || err?.message || 'Unknown error'
+        alert(`Complaint created successfully, but attachment upload failed: ${errorMsg}. You can add it manually in the Communications tab.`)
       }
     }
 
