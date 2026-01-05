@@ -21,10 +21,14 @@ services:
       ENVIRONMENT: local
       DEBUG: "true"
       DEMO_MODE: "true"
+    volumes:
+      - attachments_data_local:/app/storage/attachments
 
 volumes:
   postgres_data:
     # Pin the volume name so it persists even if the compose project name changes.
     name: compass_postgres_data
+  attachments_data_local:
+    name: compass_attachments_data_local
 
 
