@@ -731,6 +731,49 @@ def debug_attachments(
     }
 
 
+@router.get("/attachments/list")
+def list_all_attachments(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.admin])),
+    limit: int = 100,
+):
+    """List all attachments across all complaints (admin only)"""
+    from pathlib import Path
+    from app.models.attachment import Attachment
+    from app.models.communication import Communication
+    
+    attachments = (
+        db.query(Attachment)
+        .join(Communication)
+        .order_by(Attachment.uploaded_at.desc())
+        .limit(limit)
+        .all()
+    )
+    
+    attachments_info = []
+    for att in attachments:
+        file_exists = Path(att.storage_path).exists()
+        file_size = Path(att.storage_path).stat().st_size if file_exists else 0
+        attachments_info.append({
+            "id": str(att.id),
+            "file_name": att.file_name,
+            "content_type": att.content_type,
+            "storage_path": att.storage_path,
+            "url": att.url,
+            "file_exists": file_exists,
+            "file_size_bytes": file_size,
+            "file_size_mb": round(file_size / (1024 * 1024), 2) if file_size > 0 else 0,
+            "communication_id": str(att.communication_id),
+            "uploaded_at": att.uploaded_at.isoformat() if att.uploaded_at else None,
+        })
+    
+    return {
+        "total": len(attachments_info),
+        "limit": limit,
+        "attachments": attachments_info,
+    }
+
+
 @router.post("/{complaint_id}/tasks", response_model=TaskOut)
 def add_task(
     complaint_id: str,
