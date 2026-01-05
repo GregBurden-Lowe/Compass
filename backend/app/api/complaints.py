@@ -868,9 +868,36 @@ def delete_complaint(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin])),
 ):
-    """Delete a complaint. Admin only. This will cascade delete all related records."""
+    """Delete a complaint. Admin only. This will cascade delete all related records and their files."""
+    from pathlib import Path
+    from app.models.attachment import Attachment
+    
     complaint = _get_complaint(db, complaint_id)
+    
+    # Collect all attachment file paths before deletion (cascade will remove DB records)
+    attachment_files = []
+    for comm in complaint.communications:
+        for att in comm.attachments:
+            file_path = Path(att.storage_path)
+            if file_path.exists():
+                attachment_files.append(file_path)
+    
+    # Delete the complaint (cascade will delete communications and attachment DB records)
     db.delete(complaint)
     db.commit()
-    return None
+    
+    # Delete physical files from disk after DB commit succeeds
+    deleted_count = 0
+    for file_path in attachment_files:
+        try:
+            file_path.unlink()
+            deleted_count += 1
+            logger.info(f"Deleted attachment file: {file_path}")
+        except Exception as e:
+            logger.warning(f"Failed to delete attachment file {file_path}: {e}")
+    
+    if attachment_files:
+        logger.info(f"Deleted complaint {complaint_id}: removed {deleted_count}/{len(attachment_files)} attachment files")
+    
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
