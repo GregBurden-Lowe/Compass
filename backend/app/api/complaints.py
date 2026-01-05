@@ -622,7 +622,7 @@ async def add_communication(
     summary: str = Form(...),
     is_final_response: bool = Form(False),
     occurred_at: datetime = Form(...),
-    files: List[UploadFile] | None = File(default=None),
+    files: Optional[List[UploadFile]] = File(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
 ):
@@ -636,7 +636,8 @@ async def add_communication(
         
         # Use FastAPI's standard File parameter handling instead of manual form parsing
         # This ensures compatibility with all multipart encodings and client libraries
-        file_list: List[UploadFile] = files if files else []
+        # Handle both None and empty list cases
+        file_list: List[UploadFile] = files if files is not None else []
         
         complaint = _get_complaint(db, complaint_id)
         storage_root = Path("storage/attachments")
