@@ -11,6 +11,7 @@ from fastapi import (
     Form,
     status,
 )
+from typing import Union
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, and_
@@ -622,7 +623,7 @@ async def add_communication(
     summary: str = Form(...),
     is_final_response: bool = Form(False),
     occurred_at: datetime = Form(...),
-    files: List[UploadFile] | UploadFile | None = File(default=None),
+    files: Union[List[UploadFile], UploadFile, None] = File(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
 ):
