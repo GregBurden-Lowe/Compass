@@ -19,7 +19,10 @@ class Attachment(Base):
     def url(self) -> str:
         # Expose a path served by StaticFiles mount at /attachments
         # Extract filename from storage_path (handles both relative and absolute paths)
+        # The storage_path is the full absolute path like /app/storage/attachments/1736179200.123-filename.pdf
+        # We need just the filename part (with timestamp prefix) for the URL
         filename = os.path.basename(self.storage_path)
         # Ensure URL is absolute from root (nginx will proxy /attachments/ to backend)
+        # URL format: /attachments/1736179200.123-filename.pdf
         return f"/attachments/{filename}"
 
