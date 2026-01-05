@@ -1,5 +1,26 @@
 import React, { useEffect, useState } from 'react'
-import { Box, Button, Card, CardContent, Stack, TextField, Typography, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material'
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Stack,
+  TextField,
+  Typography,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  IconButton,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert,
+} from '@mui/material'
+import { Delete, Visibility, Download } from '@mui/icons-material'
 import { api } from '../api/client'
 import { ReferenceItem } from '../types'
 
@@ -163,6 +184,60 @@ const Section = ({ kind }: { kind: Kind }) => (
     </Card>
   )
 
+  // Attachments state
+  const [attachments, setAttachments] = useState<any[]>([])
+  const [loadingAttachments, setLoadingAttachments] = useState(false)
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [attachmentToDelete, setAttachmentToDelete] = useState<{ id: string; file_name: string } | null>(null)
+
+  const loadAttachments = async () => {
+    setLoadingAttachments(true)
+    setError(null)
+    try {
+      const res = await api.get('/complaints/attachments/list', { params: { limit: 200 } })
+      setAttachments(res.data.attachments || [])
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Failed to load attachments')
+    } finally {
+      setLoadingAttachments(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+    loadAttachments()
+  }, [])
+
+  const handleDeleteAttachment = (attachment: any) => {
+    setAttachmentToDelete({ id: attachment.id, file_name: attachment.file_name })
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmDeleteAttachment = async () => {
+    if (!attachmentToDelete) return
+    setDeletingAttachmentId(attachmentToDelete.id)
+    setError(null)
+    try {
+      await api.delete(`/complaints/attachments/${attachmentToDelete.id}`)
+      await loadAttachments()
+      setDeleteConfirmOpen(false)
+      setAttachmentToDelete(null)
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Failed to delete attachment')
+    } finally {
+      setDeletingAttachmentId(null)
+    }
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`
+  }
+
   return (
     <Box>
       <Typography variant="h5" gutterBottom>
@@ -175,7 +250,114 @@ const Section = ({ kind }: { kind: Kind }) => (
         <Section kind="products" />
         <Section kind="brokers" />
         <Section kind="insurers" />
+        
+        {/* Attachments Section */}
+        <Card>
+          <CardContent>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="h6">Attachments</Typography>
+              <Button onClick={loadAttachments} disabled={loadingAttachments}>
+                Refresh
+              </Button>
+            </Stack>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>File Name</TableCell>
+                  <TableCell>Content Type</TableCell>
+                  <TableCell>Size</TableCell>
+                  <TableCell>Uploaded</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loadingAttachments ? (
+                  <TableRow>
+                    <TableCell colSpan={6}>Loading...</TableCell>
+                  </TableRow>
+                ) : attachments.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6}>No attachments found</TableCell>
+                  </TableRow>
+                ) : (
+                  attachments.map((att) => (
+                    <TableRow key={att.id}>
+                      <TableCell>{att.file_name}</TableCell>
+                      <TableCell>
+                        <Chip label={att.content_type} size="small" />
+                      </TableCell>
+                      <TableCell>{formatFileSize(att.file_size_bytes)}</TableCell>
+                      <TableCell>
+                        {att.uploaded_at ? new Date(att.uploaded_at).toLocaleString() : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={att.file_exists ? 'Exists' : 'Missing'}
+                          color={att.file_exists ? 'success' : 'error'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <IconButton
+                            size="small"
+                            component="a"
+                            href={att.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="View/Download"
+                          >
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteAttachment(att)}
+                            disabled={deletingAttachmentId === att.id}
+                            color="error"
+                            title="Delete"
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </Stack>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+        <DialogTitle>Delete Attachment</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete <strong>{attachmentToDelete?.file_name}</strong>?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            This will permanently delete the file from disk and remove the database record. This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+          <Button
+            onClick={confirmDeleteAttachment}
+            color="error"
+            variant="contained"
+            disabled={deletingAttachmentId !== null}
+          >
+            {deletingAttachmentId ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

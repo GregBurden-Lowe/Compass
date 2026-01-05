@@ -774,6 +774,40 @@ def list_all_attachments(
     }
 
 
+@router.delete("/attachments/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_attachment(
+    attachment_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.admin])),
+):
+    """Delete an attachment (admin only). Removes both the database record and the file from disk."""
+    from pathlib import Path
+    from app.models.attachment import Attachment
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    attachment = db.get(Attachment, attachment_id)
+    if not attachment:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attachment not found")
+    
+    # Delete file from disk
+    file_path = Path(attachment.storage_path)
+    if file_path.exists():
+        try:
+            file_path.unlink()
+            logger.info(f"Deleted attachment file: {file_path}")
+        except Exception as e:
+            logger.warning(f"Failed to delete attachment file {file_path}: {e}")
+            # Continue with DB deletion even if file deletion fails
+    
+    # Delete database record (cascade will handle communication relationship)
+    db.delete(attachment)
+    db.commit()
+    
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/{complaint_id}/tasks", response_model=TaskOut)
 def add_task(
     complaint_id: str,
