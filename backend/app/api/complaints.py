@@ -622,7 +622,7 @@ async def add_communication(
     summary: str = Form(...),
     is_final_response: bool = Form(False),
     occurred_at: datetime = Form(...),
-    files: List[UploadFile] | None = File(default=None),
+    files: List[UploadFile] | UploadFile | None = File(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
 ):
@@ -638,7 +638,14 @@ async def add_communication(
         storage_root = Path("storage/attachments")
         storage_root.mkdir(parents=True, exist_ok=True)
         saved_files = []
-        for upload in files or []:
+        # Handle both single file and list of files
+        file_list = []
+        if files:
+            if isinstance(files, list):
+                file_list = files
+            else:
+                file_list = [files]
+        for upload in file_list:
             # Check file size
             content = await upload.read()
             if len(content) > max_size_bytes:
