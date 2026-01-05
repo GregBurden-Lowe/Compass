@@ -623,7 +623,7 @@ async def add_communication(
     summary: str = Form(...),
     is_final_response: bool = Form(False),
     occurred_at: datetime = Form(...),
-    files: Union[List[UploadFile], UploadFile, None] = File(default=None),
+    files: Optional[List[UploadFile]] = File(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
 ):
