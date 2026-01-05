@@ -9,7 +9,6 @@ from fastapi import (
     UploadFile,
     File,
     Form,
-    Request,
     status,
 )
 from fastapi.responses import JSONResponse
@@ -617,13 +616,13 @@ def reopen_complaint(
 
 @router.post("/{complaint_id}/communications", response_model=CommunicationOut)
 async def add_communication(
-    request: Request,
     complaint_id: str,
     channel: CommunicationChannel = Form(...),
     direction: CommunicationDirection = Form(...),
     summary: str = Form(...),
     is_final_response: bool = Form(False),
     occurred_at: datetime = Form(...),
+    files: List[UploadFile] | None = File(default=None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
 ):
@@ -635,15 +634,9 @@ async def add_communication(
         settings = get_settings()
         max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
         
-        # Parse files from form data manually to handle both single and multiple files
-        form = await request.form()
-        file_list: List[UploadFile] = []
-        if "files" in form:
-            files_field = form.getlist("files")
-            # form.getlist returns a list, but items might be strings or UploadFiles
-            for item in files_field:
-                if isinstance(item, UploadFile):
-                    file_list.append(item)
+        # Use FastAPI's standard File parameter handling instead of manual form parsing
+        # This ensures compatibility with all multipart encodings and client libraries
+        file_list: List[UploadFile] = files if files else []
         
         complaint = _get_complaint(db, complaint_id)
         storage_root = Path("storage/attachments")
