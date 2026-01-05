@@ -86,13 +86,28 @@ def create_app() -> FastAPI:
     
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        # Clean errors to remove non-serializable objects (like UploadFile)
+        clean_errors = []
+        for error in exc.errors():
+            clean_error = {}
+            for key, value in error.items():
+                # Skip non-serializable values (like UploadFile objects)
+                try:
+                    import json
+                    json.dumps(value)
+                    clean_error[key] = value
+                except (TypeError, ValueError):
+                    # Replace non-serializable objects with a string representation
+                    clean_error[key] = str(value) if value is not None else None
+            clean_errors.append(clean_error)
+        
         logger.warning(
-            f"Validation error: {exc.errors()}",
+            f"Validation error: {clean_errors}",
             extra={"path": request.url.path, "method": request.method}
         )
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={"detail": exc.errors()}
+            content={"detail": clean_errors}
         )
     
     @app.exception_handler(StarletteHTTPException)
