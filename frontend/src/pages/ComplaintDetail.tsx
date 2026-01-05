@@ -1051,28 +1051,57 @@ export default function ComplaintDetail() {
                   <ListItemText primary="No events recorded yet" />
                 </ListItem>
               )}
-              {events.map((ev) => (
-                <ListItem key={ev.id} sx={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <ListItemText
-                    primaryTypographyProps={{ sx: { fontWeight: 600 } }}
-                    secondaryTypographyProps={{ component: 'div' }}
-                    primary={ev.event_type.replace(/_/g, ' ')}
-                    secondary={
-                      <Stack spacing={0.5}>
-                        {ev.description && <Typography variant="body2">{ev.description}</Typography>}
-                        {(ev.created_by_name || ev.created_by_id) && (
+              {events.map((ev) => {
+                // Check if this event is about a communication and if we can find the related communication with attachments
+                const isCommunicationEvent = ev.event_type === 'communication_added'
+                const relatedComm = isCommunicationEvent && complaint?.communications?.find(
+                  (c) => c.summary === ev.description || c.summary?.includes(ev.description?.substring(0, 50) || '')
+                )
+                const hasAttachments = relatedComm?.attachments && relatedComm.attachments.length > 0
+
+                return (
+                  <ListItem key={ev.id} sx={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <ListItemText
+                      primaryTypographyProps={{ sx: { fontWeight: 600 } }}
+                      secondaryTypographyProps={{ component: 'div' }}
+                      primary={ev.event_type.replace(/_/g, ' ')}
+                      secondary={
+                        <Stack spacing={0.5}>
+                          {ev.description && <Typography variant="body2">{ev.description}</Typography>}
+                          {hasAttachments && (
+                            <Stack direction="row" spacing={1} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                Attachments:
+                              </Typography>
+                              {relatedComm.attachments.map((a) => (
+                                <Button
+                                  key={a.id}
+                                  size="small"
+                                  component="a"
+                                  href={`${attachmentBase}${a.url}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  sx={{ minWidth: 'auto', p: 0.5, textTransform: 'none', fontSize: '0.75rem' }}
+                                >
+                                  {a.file_name}
+                                </Button>
+                              ))}
+                            </Stack>
+                          )}
+                          {(ev.created_by_name || ev.created_by_id) && (
+                            <Typography variant="caption" color="text.secondary">
+                              {`By ${ev.created_by_name || ev.created_by_id}`}
+                            </Typography>
+                          )}
                           <Typography variant="caption" color="text.secondary">
-                            {`By ${ev.created_by_name || ev.created_by_id}`}
+                            {dayjs(ev.created_at).format('DD MMM YYYY HH:mm')}
                           </Typography>
-                        )}
-                        <Typography variant="caption" color="text.secondary">
-                          {dayjs(ev.created_at).format('DD MMM YYYY HH:mm')}
-                        </Typography>
-                      </Stack>
-                    }
-                  />
-                </ListItem>
-              ))}
+                        </Stack>
+                      }
+                    />
+                  </ListItem>
+                )
+              })}
             </List>
           </CardContent>
         </Card>

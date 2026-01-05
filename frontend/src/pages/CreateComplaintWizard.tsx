@@ -96,12 +96,23 @@ export default function CreateComplaintWizard() {
     const res = await api.post('/complaints', payload)
     const id = res.data.id as string
 
-    // If email/letter and an attachment is provided, log initial communication with attachment
-    if (channelFile && ['Email', 'Letter'].includes(payload.source)) {
+    // If an attachment is provided, log initial communication with attachment
+    // Map source to appropriate channel for communication
+    if (channelFile) {
       const formData = new FormData()
-      formData.append('channel', payload.source.toLowerCase())
+      // Map source to communication channel (default to 'other' if not a standard channel)
+      const channelMap: Record<string, string> = {
+        'Email': 'email',
+        'Letter': 'letter',
+        'Phone': 'phone',
+        'Web': 'web',
+        'In Person': 'in_person',
+        'Other': 'other',
+      }
+      const channel = channelMap[payload.source] || 'other'
+      formData.append('channel', channel)
       formData.append('direction', 'inbound')
-      formData.append('summary', `Initial complaint via ${payload.source}`)
+      formData.append('summary', `Initial complaint via ${payload.source}${channelFile.name ? ` (with attachment: ${channelFile.name})` : ''}`)
       formData.append('occurred_at', payload.received_at)
       formData.append('is_final_response', 'false')
       formData.append('files', channelFile)
@@ -110,8 +121,9 @@ export default function CreateComplaintWizard() {
           headers: { 'Content-Type': 'multipart/form-data' },
         })
       } catch (err) {
-        // continue even if attachment upload fails
-        console.error('Failed to upload attachment', err)
+        // Log error but continue - user can add communication manually if needed
+        console.error('Failed to upload attachment during complaint creation', err)
+        alert('Complaint created successfully, but attachment upload failed. You can add it manually in the Communications tab.')
       }
     }
 
@@ -243,22 +255,22 @@ export default function CreateComplaintWizard() {
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
-              {(payload.source === 'Email' || payload.source === 'Letter') && (
-                <Grid item xs={12}>
-                  <Button variant="outlined" component="label">
-                    Attach file (PDF preferred)
-                    <input
-                      hidden
-                      type="file"
-                      accept=".pdf,.png,.jpg,.jpeg,.txt"
-                      onChange={(e) => setChannelFile(e.target.files?.[0] || null)}
-                    />
-                  </Button>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    For emails/letters, please upload a PDF print (avoid .eml/.msg). Selected: {channelFile?.name || 'none'}
-                  </Typography>
-                </Grid>
-              )}
+              <Grid item xs={12}>
+                <Button variant="outlined" component="label">
+                  Attach file (PDF preferred)
+                  <input
+                    hidden
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.txt,.doc,.docx"
+                    onChange={(e) => setChannelFile(e.target.files?.[0] || null)}
+                  />
+                </Button>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {payload.source === 'Email' || payload.source === 'Letter'
+                    ? `For emails/letters, please upload a PDF print (avoid .eml/.msg). Selected: ${channelFile?.name || 'none'}`
+                    : `Upload supporting documents. Selected: ${channelFile?.name || 'none'}`}
+                </Typography>
+              </Grid>
             </Grid>
           )}
           {activeStep === 2 && (
