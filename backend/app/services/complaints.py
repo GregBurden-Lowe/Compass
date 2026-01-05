@@ -19,6 +19,8 @@ from app.models.enums import (
     RedressType,
     ActionStatus,
     UserRole,
+    CommunicationChannel,
+    CommunicationDirection,
 )
 from app.models.user import User
 from app.utils.dates import add_business_days, add_weeks, utcnow
@@ -226,14 +228,20 @@ def add_communication_with_attachments(
     db: Session,
     *,
     complaint: Complaint,
-    channel: str,
-    direction: str,
+    channel: CommunicationChannel | str,
+    direction: CommunicationDirection | str,
     summary: str,
     occurred_at: datetime,
     is_final_response: bool = False,
     attachment_files: Iterable[dict] | None = None,
     user_id: Optional[str] = None,
 ) -> Communication:
+    # Convert string to enum if needed
+    if isinstance(channel, str):
+        channel = CommunicationChannel(channel)
+    if isinstance(direction, str):
+        direction = CommunicationDirection(direction)
+    
     comm = Communication(
         complaint_id=complaint.id,
         channel=channel,
