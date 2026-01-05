@@ -683,12 +683,14 @@ async def add_communication(
                 )
             service.issue_final_response(db, complaint, str(current_user.id))
         db.commit()
-        # Refresh and explicitly load attachments relationship
-        db.refresh(comm)
-        # Force load attachments by accessing them
-        if comm.attachments:
-            _ = [a.id for a in comm.attachments]
-        return comm
+        # Reload communication with attachments using joinedload to ensure they're included in response
+        comm_with_attachments = (
+            db.query(Communication)
+            .options(joinedload(Communication.attachments))
+            .filter(Communication.id == comm.id)
+            .first()
+        )
+        return comm_with_attachments or comm
     except HTTPException:
         raise
     except Exception as e:
