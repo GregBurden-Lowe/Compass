@@ -652,10 +652,13 @@ async def add_communication(
                 )
             safe_name = f"{utcnow().timestamp()}-{upload.filename}"
             dest = storage_root / safe_name
-            with dest.open("wb") as f:
+            # Ensure absolute path for storage_path
+            dest_absolute = dest.resolve()
+            with dest_absolute.open("wb") as f:
                 f.write(content)
+            logger.info(f"Saved attachment: {upload.filename} -> {dest_absolute} ({len(content)} bytes)")
             saved_files.append(
-                {"file_name": upload.filename, "content_type": upload.content_type or "application/octet-stream", "storage_path": str(dest)}
+                {"file_name": upload.filename, "content_type": upload.content_type or "application/octet-stream", "storage_path": str(dest_absolute)}
             )
         comm = service.add_communication_with_attachments(
             db,
@@ -668,6 +671,7 @@ async def add_communication(
             attachment_files=saved_files,
             user_id=str(current_user.id),
         )
+        logger.info(f"Created communication {comm.id} with {len(saved_files)} attachment(s)")
         if is_final_response:
             if not complaint.outcome:
                 raise HTTPException(
@@ -683,6 +687,8 @@ async def add_communication(
             .filter(Communication.id == comm.id)
             .first()
         )
+        if comm_with_attachments:
+            logger.info(f"Returning communication {comm_with_attachments.id} with {len(comm_with_attachments.attachments)} attachment(s)")
         return comm_with_attachments or comm
     except HTTPException:
         raise
@@ -692,6 +698,36 @@ async def add_communication(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to add communication: {str(e)}"
         )
+
+
+@router.get("/{complaint_id}/attachments/debug")
+def debug_attachments(
+    complaint_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Debug endpoint to verify attachments are saved and accessible"""
+    from pathlib import Path
+    complaint = _get_complaint(db, complaint_id)
+    attachments_info = []
+    for comm in complaint.communications:
+        for att in comm.attachments:
+            file_exists = Path(att.storage_path).exists()
+            file_size = Path(att.storage_path).stat().st_size if file_exists else 0
+            attachments_info.append({
+                "id": str(att.id),
+                "file_name": att.file_name,
+                "storage_path": att.storage_path,
+                "url": att.url,
+                "file_exists": file_exists,
+                "file_size_bytes": file_size,
+                "communication_id": str(att.communication_id),
+            })
+    return {
+        "complaint_id": complaint_id,
+        "total_attachments": len(attachments_info),
+        "attachments": attachments_info,
+    }
 
 
 @router.post("/{complaint_id}/tasks", response_model=TaskOut)

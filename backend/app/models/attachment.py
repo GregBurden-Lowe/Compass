@@ -17,7 +17,9 @@ class Attachment(Base):
 
     @property
     def url(self) -> str:
-        # Expose a path served by StaticFiles mount
+        # Expose a path served by StaticFiles mount at /attachments
+        # Extract filename from storage_path (handles both relative and absolute paths)
         filename = os.path.basename(self.storage_path)
+        # Ensure URL is absolute from root (nginx will proxy /attachments/ to backend)
         return f"/attachments/{filename}"
 
