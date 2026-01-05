@@ -122,7 +122,7 @@ export default function ComplaintDetail() {
     : null
 
   const load = () => {
-    api.get<Complaint>(`/complaints/${id}`).then((res) => setComplaint(res.data))
+    api.get<Complaint>(`/complaints/${id}`, { params: { _: Date.now() } }).then((res) => setComplaint(res.data))
     api.get<ComplaintEvent[]>(`/complaints/${id}/events`).then((res) => setEvents(res.data))
   }
 

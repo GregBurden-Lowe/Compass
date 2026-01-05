@@ -684,6 +684,8 @@ async def add_communication(
             service.issue_final_response(db, complaint, str(current_user.id))
         db.commit()
         db.refresh(comm)
+        # Explicitly load attachments relationship
+        _ = comm.attachments
         return comm
     except HTTPException:
         raise
