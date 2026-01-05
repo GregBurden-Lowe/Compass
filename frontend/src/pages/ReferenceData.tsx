@@ -76,7 +76,7 @@ export default function ReferenceData() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      await api.post(`/reference/${kind}/import`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      await api.post(`/reference/${kind}/import`, formData)
       setFileInput((f) => ({ ...f, [kind]: null }))
       await load()
     } catch (err: any) {

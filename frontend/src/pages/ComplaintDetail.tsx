@@ -205,9 +205,7 @@ export default function ComplaintDetail() {
       Array.from(files).forEach((f) => form.append('files', f))
     }
     try {
-      await api.post(`/complaints/${complaint.id}/communications`, form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      await api.post(`/complaints/${complaint.id}/communications`, form)
       setSummary('')
       setFiles(null)
       setOccurredAt(dayjs().format('YYYY-MM-DDTHH:mm'))

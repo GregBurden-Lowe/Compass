@@ -117,9 +117,7 @@ export default function CreateComplaintWizard() {
       formData.append('is_final_response', 'false')
       formData.append('files', channelFile)
       try {
-        await api.post(`/complaints/${id}/communications`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
+        await api.post(`/complaints/${id}/communications`, formData)
       } catch (err) {
         // Log error but continue - user can add communication manually if needed
         console.error('Failed to upload attachment during complaint creation', err)
