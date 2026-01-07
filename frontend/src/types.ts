@@ -97,6 +97,9 @@ export interface Complaint {
   vulnerability_flag: boolean
   vulnerability_notes?: string
   fca_complaint?: boolean
+  fos_complaint?: boolean
+  fos_reference?: string
+  fos_referred_at?: string
   policy?: {
     policy_number?: string
     product?: string

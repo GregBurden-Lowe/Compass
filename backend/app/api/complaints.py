@@ -46,6 +46,7 @@ from app.schemas.complaint import (
     EventOut,
     CloseRequest,
     EscalateRequest,
+    ReferToFosRequest,
 )
 from app.models.task import Task
 from app.services import complaints as service
@@ -662,6 +663,23 @@ def reopen_complaint(
 ):
     complaint = _get_complaint(db, complaint_id)
     service.reopen(db, complaint, str(current_user.id), payload.reason, payload.reopened_at)
+    db.commit()
+    db.refresh(complaint)
+    return complaint
+
+
+@router.post("/{complaint_id}/refer-to-fos", response_model=ComplaintOut)
+def refer_to_fos(
+    complaint_id: str,
+    payload: ReferToFosRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
+):
+    complaint = _get_complaint(db, complaint_id)
+    try:
+        service.refer_to_fos(db, complaint, payload.fos_reference, payload.fos_referred_at, str(current_user.id))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     db.commit()
     db.refresh(complaint)
     return complaint

@@ -213,6 +213,29 @@ def reopen(db: Session, complaint: Complaint, user_id: Optional[str], reason: Op
     return complaint
 
 
+def refer_to_fos(
+    db: Session,
+    complaint: Complaint,
+    fos_reference: str,
+    fos_referred_at: Optional[datetime],
+    user_id: Optional[str],
+) -> Complaint:
+    if complaint.fos_complaint:
+        raise ValueError("Complaint has already been referred to FOS")
+    complaint.fos_complaint = True
+    complaint.fos_reference = fos_reference
+    complaint.fos_referred_at = fos_referred_at or utcnow()
+    date_str = complaint.fos_referred_at.strftime("%d %b %Y")
+    add_event(
+        db,
+        complaint,
+        "referred_to_fos",
+        f"Referred to Financial Ombudsman Service. Reference: {fos_reference}. Date: {date_str}",
+        user_id,
+    )
+    return complaint
+
+
 def assign_handler(db: Session, complaint: Complaint, handler_id: str, user_id: Optional[str]) -> Complaint:
     assignee_name = None
     assignee = db.get(User, handler_id)

@@ -62,6 +62,9 @@ class ComplaintBase(BaseModel):
     reason: Optional[str] = None
     fca_complaint: bool = False
     fca_rationale: Optional[str] = None
+    fos_complaint: bool = False
+    fos_reference: Optional[str] = None
+    fos_referred_at: Optional[datetime] = None
     vulnerability_flag: bool = False
     vulnerability_notes: Optional[str] = None
     policy_number: Optional[str] = None
@@ -214,6 +217,11 @@ class EscalateRequest(BaseModel):
     manager_id: str
 
 
+class ReferToFosRequest(BaseModel):
+    fos_reference: str
+    fos_referred_at: Optional[datetime] = None
+
+
 class ComplaintOut(BaseModel):
     id: UUID
     reference: str
@@ -224,6 +232,9 @@ class ComplaintOut(BaseModel):
     category: str
     reason: Optional[str]
     fca_complaint: bool
+    fos_complaint: bool
+    fos_reference: Optional[str]
+    fos_referred_at: Optional[datetime]
     vulnerability_flag: bool
     vulnerability_notes: Optional[str]
     non_reportable: bool

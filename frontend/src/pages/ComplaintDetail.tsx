@@ -107,6 +107,10 @@ export default function ComplaintDetail() {
   const [closeDate, setCloseDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [closeComment, setCloseComment] = useState('')
   const [closeError, setCloseError] = useState<string | null>(null)
+  const [showFosDialog, setShowFosDialog] = useState(false)
+  const [fosReference, setFosReference] = useState('')
+  const [fosDate, setFosDate] = useState(dayjs().format('YYYY-MM-DD'))
+  const [referringToFos, setReferringToFos] = useState(false)
   const isMonetaryType = monetaryTypes.includes(redressType)
   const redressLabel = (value: string) => redressOptions.find((o) => o.value === value)?.label || value
   const [events, setEvents] = useState<ComplaintEvent[]>([])
@@ -519,11 +523,25 @@ export default function ComplaintDetail() {
             <Chip color="warning" label="Vulnerable" />
           </Grid>
         )}
+        {complaint.fos_complaint && (
+          <Grid item>
+            <Chip color="info" label={`FOS: ${complaint.fos_reference || 'Referred'}`} />
+          </Grid>
+        )}
       </Grid>
 
       <Stack direction="row" spacing={1} mb={2}>
         <Button variant="contained" size="small" disabled={role === 'read_only'} onClick={() => action('acknowledge')}>
           Acknowledge
+        </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          color="info"
+          disabled={role === 'read_only' || complaint.fos_complaint || referringToFos}
+          onClick={() => setShowFosDialog(true)}
+        >
+          Refer to Ombudsman
         </Button>
         <Button variant="outlined" size="small" disabled={role === 'read_only'} onClick={() => action('investigate')}>
           Move to investigation
@@ -678,6 +696,7 @@ export default function ComplaintDetail() {
                   <StatusChip status={complaint.status} />
                   {complaint.vulnerability_flag && <Chip size="small" color="warning" label="Vulnerable" />}
                   {complaint.is_escalated && <Chip size="small" color="error" label="Escalated" />}
+                  {complaint.fos_complaint && <Chip size="small" color="info" label={`FOS: ${complaint.fos_reference || 'Referred'}`} />}
                   {complaint.ack_breached && <Chip size="small" color="error" label="Ack SLA breached" />}
                   {complaint.final_breached && <Chip size="small" color="error" label="Final SLA breached" />}
                 </Stack>
@@ -1588,6 +1607,61 @@ export default function ComplaintDetail() {
           </Button>
           <Button onClick={handleDelete} color="error" variant="contained" disabled={deleting}>
             {deleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={showFosDialog} onClose={() => setShowFosDialog(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Refer to Financial Ombudsman Service</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              fullWidth
+              label="FOS Reference"
+              value={fosReference}
+              onChange={(e) => setFosReference(e.target.value)}
+              required
+              helperText="Enter the FOS reference number"
+            />
+            <TextField
+              fullWidth
+              label="Date referred"
+              type="date"
+              value={fosDate}
+              onChange={(e) => setFosDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              helperText="Date the complaint was referred to FOS"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowFosDialog(false)} disabled={referringToFos}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              if (!fosReference.trim()) return
+              setReferringToFos(true)
+              try {
+                await api.post(`/complaints/${complaint.id}/refer-to-fos`, {
+                  fos_reference: fosReference.trim(),
+                  fos_referred_at: fosDate ? new Date(fosDate).toISOString() : null,
+                })
+                setShowFosDialog(false)
+                setFosReference('')
+                setFosDate(dayjs().format('YYYY-MM-DD'))
+                load()
+              } catch (err: any) {
+                console.error('Failed to refer to FOS', err)
+                alert(err?.response?.data?.detail || 'Failed to refer complaint to FOS')
+              } finally {
+                setReferringToFos(false)
+              }
+            }}
+            disabled={referringToFos || !fosReference.trim()}
+          >
+            {referringToFos ? 'Referring...' : 'Confirm Referral'}
           </Button>
         </DialogActions>
       </Dialog>
