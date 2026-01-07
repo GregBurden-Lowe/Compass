@@ -486,7 +486,19 @@ export default function ComplaintDetail() {
           <Typography variant="h5">{complaint.reference}</Typography>
           <Typography variant="subtitle1">{complaint.complainant.full_name}</Typography>
         </div>
-        <StatusChip status={complaint.status} />
+        <Stack direction="row" spacing={2} alignItems="center">
+          {!isEditing && role !== 'read_only' && (
+            <Button 
+              variant="contained" 
+              size="small" 
+              color="primary" 
+              onClick={() => setIsEditing(true)}
+            >
+              Edit Complaint
+            </Button>
+          )}
+          <StatusChip status={complaint.status} />
+        </Stack>
       </Stack>
 
       <Grid container spacing={2} mb={2}>
@@ -646,23 +658,9 @@ export default function ComplaintDetail() {
             <Stack spacing={3}>
               <Stack direction="row" alignItems="flex-start" justifyContent="space-between" flexWrap="wrap" rowGap={1}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-                    <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.6 }}>
-                      Overview
-                    </Typography>
-                    {!isEditing && (
-                      <Button 
-                        variant="contained" 
-                        size="medium" 
-                        color="primary" 
-                        onClick={() => setIsEditing(true)}
-                        disabled={role === 'read_only'}
-                        sx={{ minWidth: 140 }}
-                      >
-                        Edit Complaint
-                      </Button>
-                    )}
-                  </Stack>
+                  <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.6 }}>
+                    Overview
+                  </Typography>
                   <Typography variant="h6" sx={{ fontWeight: 700, mt: 0.5 }}>
                     {complaint.reference} — {complaint.complainant.full_name}
                   </Typography>
