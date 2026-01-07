@@ -487,13 +487,11 @@ export default function ComplaintDetail() {
           <Typography variant="subtitle1">{complaint.complainant.full_name}</Typography>
         </div>
         <Stack direction="row" spacing={2} alignItems="center">
-          {!isEditing && (
-            <Button 
-              variant="contained" 
-              size="small" 
-              color="primary" 
+          {!isEditing && role !== 'read_only' && (
+            <Button
+              variant="contained"
+              size="small"
               onClick={() => setIsEditing(true)}
-              disabled={role === 'read_only'}
             >
               Edit Complaint
             </Button>
