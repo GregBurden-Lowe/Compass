@@ -77,17 +77,22 @@ class ComplaintCreate(ComplaintBase):
 
 
 class ComplaintUpdate(BaseModel):
-    category: Optional[str]
-    reason: Optional[str]
-    description: Optional[str]
-    vulnerability_flag: Optional[bool]
-    vulnerability_notes: Optional[str]
-    product: Optional[str]
-    scheme: Optional[str]
-    broker: Optional[str]
-    insurer: Optional[str]
-    policy_number: Optional[str]
-    is_escalated: Optional[bool]
+    source: Optional[str] = None
+    received_at: Optional[datetime] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    reason: Optional[str] = None
+    fca_complaint: Optional[bool] = None
+    vulnerability_flag: Optional[bool] = None
+    vulnerability_notes: Optional[str] = None
+    product: Optional[str] = None
+    scheme: Optional[str] = None
+    broker: Optional[str] = None
+    insurer: Optional[str] = None
+    policy_number: Optional[str] = None
+    is_escalated: Optional[bool] = None
+    complainant: Optional[ComplainantCreate] = None
+    policy: Optional[PolicyCreate] = None
 
 
 class CommunicationBase(BaseModel):

@@ -369,20 +369,73 @@ def update_complaint(
     complaint_id: str,
     payload: ComplaintUpdate,
     db: Session = Depends(get_db),
+    # Allow all roles except read_only (admin, complaints_handler, complaints_manager, reviewer)
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
 ):
+    from app.models.complainant import Complainant
+    from app.models.policy import Policy
+    from app.services.complaints import calculate_slas
+    
     complaint = _get_complaint(db, complaint_id)
     original_category = complaint.category
     original_escalated = complaint.is_escalated
-    if payload.category == "Other / Unclassified" and not (payload.reason and payload.reason.strip()):
+    original_received_at = complaint.received_at
+    
+    if payload.category and payload.category == "Other / Unclassified" and not (payload.reason and payload.reason.strip()):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Reason is required when category is Other / Unclassified",
         )
-    if payload.category == "Vulnerability and Customer Treatment":
+    if payload.category and payload.category == "Vulnerability and Customer Treatment":
         payload.vulnerability_flag = True
-    for field, value in payload.dict(exclude_none=True).items():
+    
+    # Update complaint fields (excluding nested objects)
+    update_dict = payload.dict(exclude_none=True, exclude={"complainant", "policy"})
+    for field, value in update_dict.items():
         setattr(complaint, field, value)
+    
+    # Update complainant if provided
+    if payload.complainant:
+        if complaint.complainant:
+            for field, value in payload.complainant.dict(exclude_none=True).items():
+                setattr(complaint.complainant, field, value)
+        else:
+            # Create new complainant if it doesn't exist
+            complainant = Complainant(
+                complaint_id=complaint.id,
+                **payload.complainant.dict(exclude_none=True)
+            )
+            db.add(complainant)
+            complaint.complainant = complainant
+    
+    # Update policy if provided
+    if payload.policy:
+        if complaint.policy:
+            for field, value in payload.policy.dict(exclude_none=True).items():
+                setattr(complaint.policy, field, value)
+                # Also update the duplicate fields on complaint for consistency
+                if field in ["policy_number", "insurer", "broker", "product", "scheme"]:
+                    setattr(complaint, field, value)
+        else:
+            # Create new policy if it doesn't exist
+            policy = Policy(
+                complaint_id=complaint.id,
+                **payload.policy.dict(exclude_none=True)
+            )
+            db.add(policy)
+            complaint.policy = policy
+            # Also update duplicate fields on complaint
+            for field in ["policy_number", "insurer", "broker", "product", "scheme"]:
+                value = getattr(policy, field, None)
+                if value:
+                    setattr(complaint, field, value)
+    
+    # Recalculate SLAs if received_at changed
+    if payload.received_at and payload.received_at != original_received_at:
+        ack_due, final_due = calculate_slas(payload.received_at)
+        complaint.ack_due_at = ack_due
+        complaint.final_due_at = final_due
+    
     escalated_changed = complaint.is_escalated != original_escalated
     if original_category != complaint.category and complaint.status in (
         ComplaintStatus.final_response_issued,

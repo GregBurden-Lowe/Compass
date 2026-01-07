@@ -110,10 +110,131 @@ export default function ComplaintDetail() {
   const isMonetaryType = monetaryTypes.includes(redressType)
   const redressLabel = (value: string) => redressOptions.find((o) => o.value === value)?.label || value
   const [events, setEvents] = useState<ComplaintEvent[]>([])
+  const [isEditing, setIsEditing] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editForm, setEditForm] = useState({
+    source: '',
+    received_at: '',
+    description: '',
+    category: '',
+    reason: '',
+    fca_complaint: false,
+    vulnerability_flag: false,
+    vulnerability_notes: '',
+    complainant: { full_name: '', email: '', phone: '' },
+    policy: { policy_number: '', product: '', insurer: '', broker: '', scheme: '' },
+  })
+  const [reference, setReference] = useState<{ products: any[]; insurers: any[]; brokers: any[] }>({
+    products: [],
+    insurers: [],
+    brokers: [],
+  })
+  
+  const fcaCategories = [
+    'Policy Administration',
+    'Sales and Advice',
+    'Pricing and Premiums',
+    'Claims Handling',
+    'Customer Service',
+    'Cancellations and Refunds',
+    'Disclosure and Documentation',
+    'Vulnerability and Customer Treatment',
+    'Data Protection and Privacy',
+    'Third-Party / Supplier Issues',
+    'Fraud or Financial Crime',
+    'Other / Unclassified',
+  ]
+
   const updateRedress = async (redressId: string, payload: any) => {
     if (!complaint) return
     await api.patch(`/complaints/${complaint.id}/redress/${redressId}`, payload)
     load()
+  }
+
+  useEffect(() => {
+    if (isEditing && complaint) {
+      setEditForm({
+        source: complaint.source || '',
+        received_at: dayjs(complaint.received_at).format('YYYY-MM-DD'),
+        description: complaint.description || '',
+        category: complaint.category || '',
+        reason: complaint.reason || '',
+        fca_complaint: complaint.fca_complaint || false,
+        vulnerability_flag: complaint.vulnerability_flag || false,
+        vulnerability_notes: complaint.vulnerability_notes || '',
+        complainant: {
+          full_name: complaint.complainant?.full_name || '',
+          email: complaint.complainant?.email || '',
+          phone: complaint.complainant?.phone || '',
+        },
+        policy: {
+          policy_number: complaint.policy_number || complaint.policy?.policy_number || '',
+          product: complaint.product || complaint.policy?.product || '',
+          insurer: complaint.insurer || complaint.policy?.insurer || '',
+          broker: complaint.broker || complaint.policy?.broker || '',
+          scheme: complaint.scheme || complaint.policy?.scheme || '',
+        },
+      })
+    }
+  }, [isEditing, complaint])
+
+  useEffect(() => {
+    if (isEditing) {
+      const loadRefs = async () => {
+        try {
+          const [products, insurers, brokers] = await Promise.all([
+            api.get('/reference/products'),
+            api.get('/reference/insurers'),
+            api.get('/reference/brokers'),
+          ])
+          setReference({ products: products.data, insurers: insurers.data, brokers: brokers.data })
+        } catch (err) {
+          // fail silently
+        }
+      }
+      loadRefs()
+    }
+  }, [isEditing])
+
+  const handleSaveEdit = async () => {
+    if (!complaint) return
+    setSavingEdit(true)
+    try {
+      const payload: any = {
+        source: editForm.source,
+        received_at: dayjs(editForm.received_at).toISOString(),
+        description: editForm.description,
+        category: editForm.category,
+        reason: editForm.reason || null,
+        fca_complaint: editForm.fca_complaint,
+        vulnerability_flag: editForm.vulnerability_flag,
+        vulnerability_notes: editForm.vulnerability_notes || null,
+        complainant: editForm.complainant,
+        policy: editForm.policy,
+      }
+      await api.patch(`/complaints/${complaint.id}`, payload)
+      setIsEditing(false)
+      load()
+    } catch (err: any) {
+      console.error('Failed to update complaint', err)
+      let errorMsg = 'Failed to update complaint'
+      if (err?.response?.data?.detail) {
+        const detail = err.response.data.detail
+        if (Array.isArray(detail)) {
+          const messages = detail.map((e: any) => {
+            const field = e.loc?.join('.') || 'field'
+            const msg = e.msg || 'validation error'
+            return `${field}: ${msg}`
+          })
+          errorMsg = messages.join('\n')
+        } else if (typeof detail === 'string') {
+          errorMsg = detail
+        }
+      }
+      alert(`Error: ${errorMsg}`)
+    } finally {
+      setSavingEdit(false)
+    }
   }
 
   const lastUpdated = complaint?.communications?.length
@@ -523,11 +644,25 @@ export default function ComplaintDetail() {
         <Card>
           <CardContent sx={{ p: 3 }}>
             <Stack spacing={3}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" rowGap={1}>
-                <Box>
-                  <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.6 }}>
-                    Overview
-                  </Typography>
+              <Stack direction="row" alignItems="flex-start" justifyContent="space-between" flexWrap="wrap" rowGap={1}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Stack direction="row" alignItems="center" spacing={2} mb={1} flexWrap="wrap">
+                    <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.6 }}>
+                      Overview
+                    </Typography>
+                    {!isEditing && (
+                      <Button 
+                        variant="contained" 
+                        size="small" 
+                        color="primary" 
+                        onClick={() => setIsEditing(true)}
+                        sx={{ ml: 1 }}
+                        disabled={role === 'read_only'}
+                      >
+                        Edit Complaint
+                      </Button>
+                    )}
+                  </Stack>
                   <Typography variant="h6" sx={{ fontWeight: 700, mt: 0.5 }}>
                     {complaint.reference} — {complaint.complainant.full_name}
                   </Typography>
@@ -535,7 +670,7 @@ export default function ComplaintDetail() {
                     Received {dayjs(complaint.received_at).format('DD MMM YYYY')} • Source {complaint.source || 'n/a'}
                   </Typography>
                 </Box>
-                <Stack direction="row" spacing={1} alignItems="center">
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                   <StatusChip status={complaint.status} />
                   {complaint.vulnerability_flag && <Chip size="small" color="warning" label="Vulnerable" />}
                   {complaint.is_escalated && <Chip size="small" color="error" label="Escalated" />}
@@ -544,87 +679,310 @@ export default function ComplaintDetail() {
                 </Stack>
               </Stack>
 
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={8}>
-                  <Box
-                    sx={{
-                      p: 2,
-                      borderRadius: 2,
-                      background: '#f8fafc',
-                      border: '1px solid #e5e7eb',
-                      minHeight: 140,
-                    }}
-                  >
-                    <Typography variant="body1" sx={{ lineHeight: 1.6 }}>
-                      {complaint.description}
+              {isEditing ? (
+                <Stack spacing={3}>
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    Edit Complaint Details
+                  </Typography>
+                  
+                  {/* Complainant Section */}
+                  <Box>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Complainant
                     </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Full name"
+                          fullWidth
+                          value={editForm.complainant.full_name}
+                          onChange={(e) => setEditForm({ ...editForm, complainant: { ...editForm.complainant, full_name: e.target.value } })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Email"
+                          fullWidth
+                          value={editForm.complainant.email}
+                          onChange={(e) => setEditForm({ ...editForm, complainant: { ...editForm.complainant, email: e.target.value } })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Phone"
+                          fullWidth
+                          value={editForm.complainant.phone}
+                          onChange={(e) => setEditForm({ ...editForm, complainant: { ...editForm.complainant, phone: e.target.value } })}
+                        />
+                      </Grid>
+                    </Grid>
                   </Box>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Box
-                    sx={{
-                      p: 2,
-                      borderRadius: 2,
-                      background: '#0f4c81',
-                      color: '#f8fafc',
-                      height: '100%',
-                    }}
-                  >
-                    <Stack spacing={1}>
-                      <Typography variant="body1">
-                        Ack due: {dayjs(complaint.ack_due_at).format('DD MMM YYYY')}
-                      </Typography>
-                      <Typography variant="body1">
-                        Final due: {dayjs(complaint.final_due_at).format('DD MMM YYYY')}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 1, color: 'rgba(255,255,255,0.8)' }}>
-                        Last updated: {lastUpdated ? dayjs(lastUpdated).format('DD MMM YYYY HH:mm') : 'No communications'}
-                      </Typography>
-                    </Stack>
-                  </Box>
-                </Grid>
-              </Grid>
 
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
-                  <Box sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Product
+                  {/* Complaint Details Section */}
+                  <Box>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Complaint Details
                     </Typography>
-                    <Typography variant="body1">{complaint.product || 'n/a'}</Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <TextField
+                          label="Description"
+                          fullWidth
+                          multiline
+                          rows={3}
+                          value={editForm.description}
+                          onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          select
+                          label="Category (FCA-aligned)"
+                          fullWidth
+                          value={editForm.category}
+                          onChange={(e) => {
+                            const value = e.target.value
+                            setEditForm({ ...editForm, category: value, vulnerability_flag: value === 'Vulnerability and Customer Treatment' ? true : editForm.vulnerability_flag })
+                          }}
+                        >
+                          {fcaCategories.map((c) => (
+                            <MenuItem key={c} value={c}>
+                              {c}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Reason / sub-category"
+                          fullWidth
+                          multiline
+                          minRows={2}
+                          value={editForm.reason}
+                          onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          select
+                          label="Channel"
+                          fullWidth
+                          value={editForm.source}
+                          onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
+                        >
+                          {['Phone', 'Email', 'Letter', 'Web', 'In Person', 'Other'].map((c) => (
+                            <MenuItem key={c} value={c}>
+                              {c}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Date complaint received"
+                          type="date"
+                          fullWidth
+                          value={editForm.received_at}
+                          onChange={(e) => setEditForm({ ...editForm, received_at: e.target.value })}
+                          InputLabelProps={{ shrink: true }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={editForm.fca_complaint}
+                              onChange={(e) => setEditForm({ ...editForm, fca_complaint: e.target.checked })}
+                            />
+                          }
+                          label="FCA Complaint"
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={editForm.vulnerability_flag}
+                              onChange={(e) => setEditForm({ ...editForm, vulnerability_flag: e.target.checked })}
+                            />
+                          }
+                          label="Vulnerable customer"
+                        />
+                      </Grid>
+                      {editForm.vulnerability_flag && (
+                        <Grid item xs={12}>
+                          <TextField
+                            label="Vulnerability notes"
+                            fullWidth
+                            multiline
+                            minRows={2}
+                            value={editForm.vulnerability_notes}
+                            onChange={(e) => setEditForm({ ...editForm, vulnerability_notes: e.target.value })}
+                          />
+                        </Grid>
+                      )}
+                    </Grid>
                   </Box>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <Box sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Policy
+
+                  {/* Policy Section */}
+                  <Box>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Policy Information
                     </Typography>
-                    <Typography variant="body1">{complaint.policy_number || 'n/a'}</Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          label="Policy number or Claim Reference"
+                          fullWidth
+                          value={editForm.policy.policy_number}
+                          onChange={(e) => setEditForm({ ...editForm, policy: { ...editForm.policy, policy_number: e.target.value } })}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          select
+                          label="Product"
+                          fullWidth
+                          value={editForm.policy.product}
+                          onChange={(e) => setEditForm({ ...editForm, policy: { ...editForm.policy, product: e.target.value } })}
+                        >
+                          <MenuItem value="">(None)</MenuItem>
+                          {reference.products.map((p) => (
+                            <MenuItem key={p.id} value={p.name}>
+                              {p.name}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          select
+                          label="Insurer"
+                          fullWidth
+                          value={editForm.policy.insurer}
+                          onChange={(e) => setEditForm({ ...editForm, policy: { ...editForm.policy, insurer: e.target.value } })}
+                        >
+                          <MenuItem value="">(None)</MenuItem>
+                          {reference.insurers.map((p) => (
+                            <MenuItem key={p.id} value={p.name}>
+                              {p.name}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          select
+                          label="Broker"
+                          fullWidth
+                          value={editForm.policy.broker}
+                          onChange={(e) => setEditForm({ ...editForm, policy: { ...editForm.policy, broker: e.target.value } })}
+                        >
+                          <MenuItem value="">(None)</MenuItem>
+                          {reference.brokers.map((p) => (
+                            <MenuItem key={p.id} value={p.name}>
+                              {p.name}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                    </Grid>
                   </Box>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <Box sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Broker / Insurer
-                    </Typography>
-                    <Typography variant="body1">{complaint.broker || 'n/a'}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {complaint.insurer || ''}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <Box sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Category / Reason
-                    </Typography>
-                    <Typography variant="body1">
-                      {complaint.category || 'n/a'}
-                      {complaint.reason ? ` — ${complaint.reason}` : ''}
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
+
+                  <Stack direction="row" spacing={2} justifyContent="flex-end">
+                    <Button variant="outlined" onClick={() => setIsEditing(false)} disabled={savingEdit}>
+                      Cancel
+                    </Button>
+                    <Button variant="contained" onClick={handleSaveEdit} disabled={savingEdit || !editForm.description || !editForm.category || !editForm.complainant.full_name}>
+                      {savingEdit ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  </Stack>
+                </Stack>
+              ) : (
+                <>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={8}>
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          background: '#f8fafc',
+                          border: '1px solid #e5e7eb',
+                          minHeight: 140,
+                        }}
+                      >
+                        <Typography variant="body1" sx={{ lineHeight: 1.6 }}>
+                          {complaint.description}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          background: '#0f4c81',
+                          color: '#f8fafc',
+                          height: '100%',
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Typography variant="body1">
+                            Ack due: {dayjs(complaint.ack_due_at).format('DD MMM YYYY')}
+                          </Typography>
+                          <Typography variant="body1">
+                            Final due: {dayjs(complaint.final_due_at).format('DD MMM YYYY')}
+                          </Typography>
+                          <Typography variant="body2" sx={{ mt: 1, color: 'rgba(255,255,255,0.8)' }}>
+                            Last updated: {lastUpdated ? dayjs(lastUpdated).format('DD MMM YYYY HH:mm') : 'No communications'}
+                          </Typography>
+                        </Stack>
+                      </Box>
+                    </Grid>
+                  </Grid>
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={3}>
+                      <Box sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Product
+                        </Typography>
+                        <Typography variant="body1">{complaint.product || 'n/a'}</Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} md={3}>
+                      <Box sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Policy
+                        </Typography>
+                        <Typography variant="body1">{complaint.policy_number || 'n/a'}</Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} md={3}>
+                      <Box sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Broker / Insurer
+                        </Typography>
+                        <Typography variant="body1">{complaint.broker || 'n/a'}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {complaint.insurer || ''}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} md={3}>
+                      <Box sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Category / Reason
+                        </Typography>
+                        <Typography variant="body1">
+                          {complaint.category || 'n/a'}
+                          {complaint.reason ? ` — ${complaint.reason}` : ''}
+                        </Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </>
+              )}
             </Stack>
           </CardContent>
         </Card>
