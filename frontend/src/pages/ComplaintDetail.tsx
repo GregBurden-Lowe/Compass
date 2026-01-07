@@ -487,13 +487,20 @@ export default function ComplaintDetail() {
           <Typography variant="subtitle1">{complaint.complainant.full_name}</Typography>
         </div>
         <Stack direction="row" spacing={2} alignItems="center">
-          {!isEditing && role !== 'read_only' && (
+          {role !== 'read_only' && (
             <Button
               variant="contained"
               size="small"
-              onClick={() => setIsEditing(true)}
+              onClick={() => {
+                if (isEditing) {
+                  setIsEditing(false)
+                } else {
+                  setTab(0)
+                  setIsEditing(true)
+                }
+              }}
             >
-              Edit Complaint
+              {isEditing ? 'Cancel edit' : 'Edit Complaint'}
             </Button>
           )}
           <StatusChip status={complaint.status} />
