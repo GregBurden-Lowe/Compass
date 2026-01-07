@@ -646,18 +646,18 @@ export default function ComplaintDetail() {
             <Stack spacing={3}>
               <Stack direction="row" alignItems="flex-start" justifyContent="space-between" flexWrap="wrap" rowGap={1}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Stack direction="row" alignItems="center" spacing={2} mb={1} flexWrap="wrap" sx={{ width: '100%' }}>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
                     <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0.6 }}>
                       Overview
                     </Typography>
                     {!isEditing && (
                       <Button 
                         variant="contained" 
-                        size="small" 
+                        size="medium" 
                         color="primary" 
                         onClick={() => setIsEditing(true)}
-                        sx={{ ml: 1, flexShrink: 0 }}
                         disabled={role === 'read_only'}
+                        sx={{ minWidth: 140 }}
                       >
                         Edit Complaint
                       </Button>
