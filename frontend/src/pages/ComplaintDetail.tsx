@@ -481,19 +481,13 @@ export default function ComplaintDetail() {
 
   return (
     <Box>
-      <Typography sx={{ backgroundColor: 'yellow', p: 1, mb: 1 }}>
-        ComplaintDetail.tsx MARKER 123
-      </Typography>
-      <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>
-        DEBUG role: {role} | tab: {tab} | isEditing: {String(isEditing)}
-      </Typography>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <div>
           <Typography variant="h5">{complaint.reference}</Typography>
           <Typography variant="subtitle1">{complaint.complainant.full_name}</Typography>
         </div>
         <Stack direction="row" spacing={2} alignItems="center">
-          {true && (
+          {role !== 'read_only' && (
             <Button
               variant="contained"
               size="small"
