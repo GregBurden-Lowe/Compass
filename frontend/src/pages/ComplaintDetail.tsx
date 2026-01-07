@@ -29,7 +29,7 @@ import {
 } from '@mui/material'
 import dayjs from 'dayjs'
 import { api } from '../api/client'
-import { Complaint, Outcome, RedressPayment, ComplaintEvent, User } from '../types'
+import { Complaint, Outcome, RedressPayment, ComplaintEvent, User, Attachment } from '../types'
 import { StatusChip } from '../components/StatusChip'
 import { useAuth } from '../context/AuthContext'
 
@@ -535,7 +535,7 @@ export default function ComplaintDetail() {
         >
           {closingNonReportable ? 'Closing...' : 'Close as non-reportable'}
         </Button>
-        {complaint?.status === 'closed' && (
+        {complaint?.status === 'Closed' && (
           <Button variant="outlined" size="small" disabled={role === 'read_only'} onClick={() => setShowReopenForm((v) => !v)}>
             Reopen
           </Button>
@@ -608,7 +608,7 @@ export default function ComplaintDetail() {
           </Button>
         )}
       </Stack>
-      {showReopenForm && complaint?.status === 'closed' && (
+      {showReopenForm && complaint?.status === 'Closed' && (
         <Card sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="subtitle2">Reopen complaint</Typography>
@@ -1434,9 +1434,9 @@ export default function ComplaintDetail() {
               {events.map((ev) => {
                 // Check if this event is about a communication and if we can find the related communication with attachments
                 const isCommunicationEvent = ev.event_type === 'communication_added'
-                const relatedComm = isCommunicationEvent && complaint?.communications?.find(
+                const relatedComm = isCommunicationEvent ? complaint?.communications?.find(
                   (c) => c.summary === ev.description || c.summary?.includes(ev.description?.substring(0, 50) || '')
-                )
+                ) : null
                 const hasAttachments = relatedComm?.attachments && relatedComm.attachments.length > 0
 
                 return (
@@ -1453,7 +1453,7 @@ export default function ComplaintDetail() {
                               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
                                 Attachments:
                               </Typography>
-                              {relatedComm.attachments.map((a) => (
+                              {relatedComm.attachments?.map((a: Attachment) => (
                                 <Button
                                   key={a.id}
                                   size="small"

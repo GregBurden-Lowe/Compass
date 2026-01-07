@@ -96,6 +96,14 @@ export interface Complaint {
   policy_number?: string
   vulnerability_flag: boolean
   vulnerability_notes?: string
+  fca_complaint?: boolean
+  policy?: {
+    policy_number?: string
+    product?: string
+    insurer?: string
+    broker?: string
+    scheme?: string
+  }
   complainant: Complainant
   redress_payments?: RedressPayment[]
   outcome?: Outcome
@@ -148,6 +156,7 @@ export interface RedressPayment {
   action_description?: string
   action_status?: string
   approved?: boolean
+  notes?: string
 }
 
 export interface Communication {
@@ -174,4 +183,5 @@ export interface ComplaintEvent {
   description?: string
   created_at: string
   created_by_id?: string
+  created_by_name?: string
 }
