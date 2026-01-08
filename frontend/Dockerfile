@@ -7,15 +7,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy source files (dist is now included since we removed it from .dockerignore)
+# Copy source files
 COPY . .
-# If dist/ already exists (from git), skip build; otherwise build
-RUN if [ -d "dist" ] && [ "$(ls -A dist 2>/dev/null)" ]; then \
-      echo "Using pre-built dist from git, skipping build"; \
-    else \
-      echo "Building frontend..."; \
-      NODE_OPTIONS="--max-old-space-size=1024" npm run build; \
-    fi
+# Always rebuild to ensure HTML and assets match
+RUN echo "Building frontend..."; \
+    NODE_OPTIONS="--max-old-space-size=1024" npm run build
 
 # Production stage
 FROM nginx:alpine
