@@ -3,17 +3,21 @@ FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
 
-# Install dependencies (include dev deps for build)
-# Use npm cache mount for faster installs (requires BuildKit)
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit --progress=false
-
-# Copy source files
+# Copy source files first
 COPY . .
-# Always rebuild to ensure HTML and assets match
-RUN echo "Building frontend..."; \
-    NODE_OPTIONS="--max-old-space-size=1024" npm run build
+
+# Check if dist exists and is valid (has index.html and assets)
+# If yes, use it; otherwise build
+RUN if [ -d "dist" ] && [ -f "dist/index.html" ] && [ -d "dist/assets" ] && [ "$(ls -A dist/assets 2>/dev/null)" ]; then \
+      echo "Using pre-built dist folder (from local build)"; \
+    else \
+      echo "Building frontend (dist not found or incomplete)..."; \
+      # Install dependencies (include dev deps for build)
+      npm ci --prefer-offline --no-audit --progress=false || \
+      (echo "npm ci failed, trying npm install..." && npm install --no-audit --progress=false); \
+      # Build
+      NODE_OPTIONS="--max-old-space-size=1024" npm run build; \
+    fi
 
 # Production stage
 FROM nginx:alpine
