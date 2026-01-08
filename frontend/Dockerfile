@@ -4,8 +4,10 @@ FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
 # Install dependencies (include dev deps for build)
+# Use npm cache mount for faster installs (requires BuildKit)
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --progress=false
 
 # Copy source files
 COPY . .
