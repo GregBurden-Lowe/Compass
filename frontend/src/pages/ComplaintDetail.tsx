@@ -37,6 +37,30 @@ export default function ComplaintDetail() {
   const [commFiles, setCommFiles] = useState<FileList | null>(null)
   const [addingComm, setAddingComm] = useState(false)
   const [commError, setCommError] = useState<string | null>(null)
+  
+  // Outcome modal
+  const [showOutcomeModal, setShowOutcomeModal] = useState(false)
+  const [outcomeForm, setOutcomeForm] = useState({
+    outcome: 'upheld',
+    notes: '',
+  })
+  const [savingOutcome, setSavingOutcome] = useState(false)
+  const [outcomeError, setOutcomeError] = useState<string | null>(null)
+  
+  // Redress modal
+  const [showRedressModal, setShowRedressModal] = useState(false)
+  const [redressForm, setRedressForm] = useState({
+    payment_type: 'financial_loss',
+    amount: '',
+    status: 'pending',
+    rationale: '',
+    action_description: '',
+    action_status: 'not_started',
+    notes: '',
+    approved: false,
+  })
+  const [savingRedress, setSavingRedress] = useState(false)
+  const [redressError, setRedressError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -190,6 +214,77 @@ export default function ComplaintDetail() {
     }
   }
 
+  const handleSaveOutcome = async () => {
+    if (!id) return
+
+    setSavingOutcome(true)
+    setOutcomeError(null)
+    try {
+      await api.post(`/complaints/${id}/outcome`, {
+        outcome: outcomeForm.outcome,
+        notes: outcomeForm.notes || null,
+      })
+      setShowOutcomeModal(false)
+      loadComplaint()
+    } catch (err: any) {
+      setOutcomeError(err?.response?.data?.detail || 'Failed to save outcome')
+    } finally {
+      setSavingOutcome(false)
+    }
+  }
+
+  const handleAddRedress = async () => {
+    if (!id) return
+
+    setSavingRedress(true)
+    setRedressError(null)
+    try {
+      await api.post(`/complaints/${id}/redress`, {
+        payment_type: redressForm.payment_type,
+        amount: redressForm.amount ? parseFloat(redressForm.amount) : null,
+        status: redressForm.status,
+        rationale: redressForm.rationale || null,
+        action_description: redressForm.action_description || null,
+        action_status: redressForm.action_status,
+        notes: redressForm.notes || null,
+        approved: redressForm.approved,
+        outcome_id: complaint?.outcome?.id || null,
+      })
+      setShowRedressModal(false)
+      setRedressForm({
+        payment_type: 'financial_loss',
+        amount: '',
+        status: 'pending',
+        rationale: '',
+        action_description: '',
+        action_status: 'not_started',
+        notes: '',
+        approved: false,
+      })
+      loadComplaint()
+    } catch (err: any) {
+      setRedressError(err?.response?.data?.detail || 'Failed to add redress')
+    } finally {
+      setSavingRedress(false)
+    }
+  }
+
+  const openOutcomeModal = () => {
+    if (complaint?.outcome) {
+      setOutcomeForm({
+        outcome: complaint.outcome.outcome,
+        notes: complaint.outcome.notes || '',
+      })
+    } else {
+      setOutcomeForm({
+        outcome: 'upheld',
+        notes: '',
+      })
+    }
+    setOutcomeError(null)
+    setShowOutcomeModal(true)
+  }
+
   return (
     <>
       <TopBar
@@ -274,16 +369,6 @@ export default function ComplaintDetail() {
                           onClick={() => handleStatusChange('final-response', 'Final response issued')}
                         >
                           📨 Issue Final Response
-                        </Button>
-                      )}
-                      
-                      {complaint.final_response_at && complaint.status !== 'Closed' && (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => handleStatusChange('close', 'Complaint closed')}
-                        >
-                          🔒 Close Complaint
                         </Button>
                       )}
                       
@@ -569,7 +654,14 @@ export default function ComplaintDetail() {
             {/* Outcome Section */}
             <Card>
               <CardHeader>
-                <CardTitle>Outcome</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Outcome</CardTitle>
+                  {user?.role !== 'read_only' && (
+                    <Button variant="primary" size="sm" onClick={openOutcomeModal}>
+                      {complaint.outcome ? 'Update Outcome' : 'Record Outcome'}
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardBody>
                 {complaint.outcome ? (
@@ -596,7 +688,17 @@ export default function ComplaintDetail() {
             {/* Redress Payments Section */}
             <Card>
               <CardHeader>
-                <CardTitle>Redress Payments</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Redress Payments</CardTitle>
+                  {user?.role !== 'read_only' && (
+                    <Button variant="primary" size="sm" onClick={() => setShowRedressModal(true)}>
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Redress
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardBody>
                 {complaint.redress_payments && complaint.redress_payments.length > 0 ? (
@@ -696,6 +798,38 @@ export default function ComplaintDetail() {
                 )}
               </CardBody>
             </Card>
+            
+            {/* Close Complaint Actions */}
+            {user?.role !== 'read_only' && complaint.status !== 'Closed' && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Close Complaint</CardTitle>
+                </CardHeader>
+                <CardBody>
+                  <div className="flex flex-wrap gap-3 mt-4">
+                    {complaint.final_response_at && (
+                      <Button
+                        variant="primary"
+                        onClick={() => handleStatusChange('close', 'Complaint closed')}
+                      >
+                        🔒 Close Complaint
+                      </Button>
+                    )}
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleStatusChange('close-non-reportable', 'Closed as non-reportable')}
+                    >
+                      🚫 Close as Non-Reportable
+                    </Button>
+                  </div>
+                  {!complaint.final_response_at && (
+                    <p className="text-xs text-text-muted mt-3">
+                      Note: Final response must be issued before closing the complaint normally.
+                    </p>
+                  )}
+                </CardBody>
+              </Card>
+            )}
           </div>
         )}
 
@@ -829,6 +963,172 @@ export default function ComplaintDetail() {
             disabled={!selectedUserId || assigning}
           >
             {assigning ? 'Assigning...' : 'Assign'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Record Outcome Modal */}
+      <Modal open={showOutcomeModal} onClose={() => setShowOutcomeModal(false)}>
+        <ModalHeader onClose={() => setShowOutcomeModal(false)}>
+          {complaint?.outcome ? 'Update Outcome' : 'Record Outcome'}
+        </ModalHeader>
+        <ModalBody>
+          {outcomeError && (
+            <div className="mb-4 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              {outcomeError}
+            </div>
+          )}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Outcome *</label>
+              <select
+                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={outcomeForm.outcome}
+                onChange={(e) => setOutcomeForm({ ...outcomeForm, outcome: e.target.value })}
+              >
+                <option value="upheld">Upheld</option>
+                <option value="partially_upheld">Partially Upheld</option>
+                <option value="not_upheld">Not Upheld</option>
+                <option value="withdrawn">Withdrawn</option>
+                <option value="out_of_scope">Out of Scope</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Notes</label>
+              <textarea
+                className="w-full min-h-[100px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={outcomeForm.notes}
+                onChange={(e) => setOutcomeForm({ ...outcomeForm, notes: e.target.value })}
+                placeholder="Add outcome notes..."
+              />
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowOutcomeModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSaveOutcome} disabled={savingOutcome}>
+            {savingOutcome ? 'Saving...' : 'Save Outcome'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Add Redress Modal */}
+      <Modal open={showRedressModal} onClose={() => setShowRedressModal(false)}>
+        <ModalHeader onClose={() => setShowRedressModal(false)}>Add Redress Payment</ModalHeader>
+        <ModalBody>
+          {redressError && (
+            <div className="mb-4 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              {redressError}
+            </div>
+          )}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Redress Type *</label>
+              <select
+                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={redressForm.payment_type}
+                onChange={(e) => setRedressForm({ ...redressForm, payment_type: e.target.value })}
+              >
+                <option value="financial_loss">Financial Loss</option>
+                <option value="interest_on_financial_loss">Interest on Financial Loss</option>
+                <option value="distress_and_inconvenience">Distress and Inconvenience</option>
+                <option value="consequential_loss">Consequential Loss</option>
+                <option value="premium_refund_adjustment">Premium Refund/Adjustment</option>
+                <option value="goodwill_payment">Goodwill Payment</option>
+                <option value="third_party_payment">Third Party Payment</option>
+                <option value="apology_or_explanation">Apology or Explanation</option>
+                <option value="remedial_action">Remedial Action</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Amount (£)</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={redressForm.amount}
+                onChange={(e) => setRedressForm({ ...redressForm, amount: e.target.value })}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-text-muted">Leave blank for non-monetary redress</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Status *</label>
+              <select
+                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={redressForm.status}
+                onChange={(e) => setRedressForm({ ...redressForm, status: e.target.value })}
+              >
+                <option value="pending">Pending</option>
+                <option value="authorised">Authorised</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Rationale</label>
+              <textarea
+                className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={redressForm.rationale}
+                onChange={(e) => setRedressForm({ ...redressForm, rationale: e.target.value })}
+                placeholder="Why is this redress being offered?"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Action Description</label>
+              <textarea
+                className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={redressForm.action_description}
+                onChange={(e) => setRedressForm({ ...redressForm, action_description: e.target.value })}
+                placeholder="What action needs to be taken?"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Action Status *</label>
+              <select
+                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={redressForm.action_status}
+                onChange={(e) => setRedressForm({ ...redressForm, action_status: e.target.value })}
+              >
+                <option value="not_started">Not Started</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Notes</label>
+              <textarea
+                className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={redressForm.notes}
+                onChange={(e) => setRedressForm({ ...redressForm, notes: e.target.value })}
+                placeholder="Additional notes..."
+              />
+            </div>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={redressForm.approved}
+                onChange={() => setRedressForm({ ...redressForm, approved: !redressForm.approved })}
+                className="h-4 w-4 rounded border-border text-brand focus:ring-2 focus:ring-brand/15"
+              />
+              <span className="text-sm font-medium text-text-primary">Approved</span>
+            </label>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowRedressModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleAddRedress} disabled={savingRedress}>
+            {savingRedress ? 'Adding...' : 'Add Redress'}
           </Button>
         </ModalFooter>
       </Modal>
