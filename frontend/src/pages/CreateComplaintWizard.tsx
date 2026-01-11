@@ -52,6 +52,7 @@ export default function CreateComplaintWizard() {
     complainant_email: '',
     complainant_phone: '',
     complainant_address: '',
+    complainant_dob: '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,6 +81,7 @@ export default function CreateComplaintWizard() {
           email: formData.complainant_email || null,
           phone: formData.complainant_phone || null,
           address: formData.complainant_address || null,
+          date_of_birth: formData.complainant_dob || null,
         },
         policy: {
           policy_number: formData.policy_number || null,
@@ -188,14 +190,27 @@ export default function CreateComplaintWizard() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-xs font-medium text-text-primary">Address</label>
-                  <textarea
-                    className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
-                    value={formData.complainant_address}
-                    onChange={(e) => setFormData({ ...formData, complainant_address: e.target.value })}
-                    placeholder="Full address..."
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Date of Birth</label>
+                    <Input
+                      type="date"
+                      value={formData.complainant_dob}
+                      onChange={(e) =>
+                        setFormData({ ...formData, complainant_dob: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Address</label>
+                    <Input
+                      value={formData.complainant_address}
+                      onChange={(e) =>
+                        setFormData({ ...formData, complainant_address: e.target.value })
+                      }
+                      placeholder="Full address..."
+                    />
+                  </div>
                 </div>
 
                 {/* Vulnerability */}

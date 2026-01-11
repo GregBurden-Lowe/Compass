@@ -1,8 +1,7 @@
-from datetime import datetime
+from datetime import datetime, date
 from uuid import UUID
 from typing import List, Optional
 from pydantic import BaseModel, Field
-from uuid import UUID
 
 from app.models.enums import (
     ComplaintStatus,
@@ -21,6 +20,7 @@ class ComplainantBase(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    date_of_birth: Optional[date] = None
     preferred_contact_method: Optional[str] = None
 
 
