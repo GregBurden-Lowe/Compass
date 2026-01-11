@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { api } from '../api/client'
-import { UserRole } from '../types'
+import { UserRole, User } from '../types'
 
 type AuthState = {
   token: string | null
   role: UserRole | null
   name: string | null
   userId: string | null
+  user: User | null
   mustChangePassword: boolean
   ready: boolean
 }
@@ -25,6 +26,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     role: null,
     name: null,
     userId: null,
+    user: null,
     mustChangePassword: false,
     ready: false,
   })
@@ -38,8 +40,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Demo mode stores a fake token; don't validate against backend.
       if (import.meta.env.VITE_DEMO_MODE === 'true') {
-        if (token && role) setState({ token, role, name, userId, mustChangePassword: false, ready: true })
-        else setState({ token: null, role: null, name: null, userId: null, mustChangePassword: false, ready: true })
+        if (token && role) setState({ token, role, name, userId, user: null, mustChangePassword: false, ready: true })
+        else setState({ token: null, role: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
         return
       }
 
@@ -58,20 +60,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             role: validatedRole,
             name: me.data.full_name,
             userId: me.data.id,
+            user: me.data,
             mustChangePassword: !!me.data.must_change_password,
             ready: true,
           })
           return
         } catch {
           localStorage.clear()
-          setState({ token: null, role: null, name: null, userId: null, mustChangePassword: false, ready: true })
+          setState({ token: null, role: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
           return
         }
       }
 
       // No token: clear any partial/stale state.
       if (role || name || userId) localStorage.clear()
-      setState({ token: null, role: null, name: null, userId: null, mustChangePassword: false, ready: true })
+      setState({ token: null, role: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
     }
 
     load()
@@ -101,7 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.setItem('role', 'admin')
       localStorage.setItem('name', 'Demo User')
       localStorage.setItem('userId', 'demo')
-      setState({ token: 'demo', role: 'admin', name: 'Demo User', userId: 'demo', mustChangePassword: false, ready: true })
+      setState({ token: 'demo', role: 'admin', name: 'Demo User', userId: 'demo', user: null, mustChangePassword: false, ready: true })
       return { mfa_enrollment_required: false, mfa_remaining_skips: 0 }
     }
     const res = await api.post('/auth/token', { email, password, mfa_code: mfaCode, recovery_code: recoveryCode })
@@ -112,13 +115,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('role', role)
     localStorage.setItem('name', me.data.full_name)
     localStorage.setItem('userId', me.data.id)
-    setState({ token, role, name: me.data.full_name, userId: me.data.id, mustChangePassword: !!me.data.must_change_password, ready: true })
+    setState({ token, role, name: me.data.full_name, userId: me.data.id, user: me.data, mustChangePassword: !!me.data.must_change_password, ready: true })
     return res.data
   }
 
   const logout = () => {
     localStorage.clear()
-    setState({ token: null, role: null, name: null, userId: null, mustChangePassword: false, ready: true })
+    setState({ token: null, role: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
   }
 
   return <AuthContext.Provider value={{ ...state, login, logout, refreshMe }}>{children}</AuthContext.Provider>

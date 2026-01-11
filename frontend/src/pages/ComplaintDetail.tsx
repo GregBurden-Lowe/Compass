@@ -2,19 +2,28 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { api } from '../api/client'
-import { Complaint, Communication } from '../types'
+import { Complaint, Communication, User } from '../types'
 import { TopBar } from '../components/layout'
 import { Button, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, ModalBody, ModalFooter, Input } from '../components/ui'
 import { StatusChip } from '../components/StatusChip'
+import { useAuth } from '../context/AuthContext'
 
 type Tab = 'overview' | 'communications' | 'outcome' | 'history'
 
 export default function ComplaintDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [complaint, setComplaint] = useState<Complaint | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('overview')
+  const [users, setUsers] = useState<User[]>([])
+  
+  // Assignment state
+  const [showAssignModal, setShowAssignModal] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState<string>('')
+  const [assigning, setAssigning] = useState(false)
+  const [assignError, setAssignError] = useState<string | null>(null)
 
   // Communication modal
   const [showCommModal, setShowCommModal] = useState(false)
@@ -32,6 +41,7 @@ export default function ComplaintDetail() {
   useEffect(() => {
     if (!id) return
     loadComplaint()
+    loadUsers()
   }, [id])
 
   const loadComplaint = () => {
@@ -46,6 +56,58 @@ export default function ComplaintDetail() {
         console.error('Failed to load complaint', err)
         setLoading(false)
       })
+  }
+
+  const loadUsers = () => {
+    // Fetch users for assignment dropdown
+    api
+      .get<User[]>('/users')
+      .then((res) => {
+        // Filter to active users who can handle complaints
+        const handlers = res.data.filter(
+          (u) => u.is_active && ['admin', 'complaints_handler', 'complaints_manager', 'reviewer'].includes(u.role)
+        )
+        setUsers(handlers)
+      })
+      .catch((err) => {
+        console.error('Failed to load users', err)
+      })
+  }
+
+  const handleAssignToMe = async () => {
+    if (!id || !user) return
+
+    setAssigning(true)
+    setAssignError(null)
+    try {
+      await api.post(`/complaints/${id}/assign`, null, {
+        params: { handler_id: user.id },
+      })
+      loadComplaint()
+    } catch (err: any) {
+      setAssignError(err?.response?.data?.detail || 'Failed to assign complaint')
+    } finally {
+      setAssigning(false)
+    }
+  }
+
+  const handleAssignToUser = async () => {
+    if (!id || !selectedUserId) return
+
+    setAssigning(true)
+    setAssignError(null)
+    try {
+      await api.post(`/complaints/${id}/assign`, null, {
+        params: { handler_id: selectedUserId },
+      })
+      setShowAssignModal(false)
+      setSelectedUserId('')
+      loadComplaint()
+    } catch (err: any) {
+      setAssignError(err?.response?.data?.detail || 'Failed to assign complaint')
+    } finally {
+      setAssigning(false)
+    }
   }
 
   const handleAddCommunication = async () => {
@@ -248,9 +310,49 @@ export default function ComplaintDetail() {
                   <CardTitle>Assignment</CardTitle>
                 </CardHeader>
                 <CardBody>
-                  <div className="mt-4">
-                    <label className="block text-xs font-medium text-text-primary mb-1">Handler</label>
-                    <p className="text-sm text-text-primary">{complaint.assigned_handler_name || 'Unassigned'}</p>
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-text-primary mb-1">Current Handler</label>
+                      <p className="text-sm text-text-primary font-semibold">
+                        {complaint.assigned_handler_name || 'Unassigned'}
+                      </p>
+                    </div>
+                    
+                    {user?.role !== 'read_only' && (
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        {/* Assign to Me button - available to all except read_only */}
+                        {(!complaint.assigned_handler_id || complaint.assigned_handler_id !== user?.id) && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleAssignToMe}
+                            disabled={assigning}
+                            className="w-full"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            Assign to Me
+                          </Button>
+                        )}
+                        
+                        {/* Assign to Other button - only for admin/manager/reviewer */}
+                        {(user?.role === 'admin' || user?.role === 'complaints_manager' || user?.role === 'reviewer') && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setShowAssignModal(true)}
+                            disabled={assigning}
+                            className="w-full"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            Assign to User
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardBody>
               </Card>
@@ -575,6 +677,47 @@ export default function ComplaintDetail() {
           </Card>
         )}
       </div>
+
+      {/* Assign to User Modal */}
+      <Modal open={showAssignModal} onClose={() => setShowAssignModal(false)}>
+        <ModalHeader onClose={() => setShowAssignModal(false)}>Assign Complaint</ModalHeader>
+        <ModalBody>
+          {assignError && (
+            <div className="mb-4 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              {assignError}
+            </div>
+          )}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Select Handler *</label>
+              <select
+                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+              >
+                <option value="">-- Select a user --</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.full_name} ({u.role.replace(/_/g, ' ')})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowAssignModal(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleAssignToUser}
+            disabled={!selectedUserId || assigning}
+          >
+            {assigning ? 'Assigning...' : 'Assign'}
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {/* Add Communication Modal */}
       <Modal open={showCommModal} onClose={() => setShowCommModal(false)}>

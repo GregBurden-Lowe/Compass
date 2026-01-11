@@ -111,6 +111,7 @@ export interface Complaint {
   redress_payments?: RedressPayment[]
   outcome?: Outcome
   communications?: Communication[]
+  events?: ComplaintEvent[]
   reopened_at?: string
 }
 
