@@ -1,23 +1,39 @@
-import { Chip } from '@mui/material'
 import { ComplaintStatus } from '../types'
 
-const colors: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error'> = {
-  new: 'default',
-  acknowledged: 'primary',
-  in_investigation: 'warning',
-  response_drafted: 'secondary',
-  final_response_issued: 'success',
-  closed: 'success',
-  reopened: 'default',
+interface StatusChipProps {
+  status: ComplaintStatus
+  className?: string
 }
 
-const labelize = (status: string) =>
-  status
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+export function StatusChip({ status, className = '' }: StatusChipProps) {
+  const getStatusColor = (status: ComplaintStatus) => {
+    switch (status) {
+      case 'New':
+        return 'bg-semantic-info/10 text-semantic-info border-semantic-info/20'
+      case 'Acknowledged':
+        return 'bg-semantic-success/10 text-semantic-success border-semantic-success/20'
+      case 'In Investigation':
+        return 'bg-blue-50 text-blue-700 border-blue-200'
+      case 'Response Drafted':
+        return 'bg-purple-50 text-purple-700 border-purple-200'
+      case 'Awaiting Customer':
+        return 'bg-yellow-50 text-yellow-700 border-yellow-200'
+      case 'Escalated':
+        return 'bg-semantic-warning/10 text-semantic-warning border-semantic-warning/20'
+      case 'Closed':
+        return 'bg-gray-100 text-gray-700 border-gray-200'
+      default:
+        return 'bg-app text-text-secondary border-border'
+    }
+  }
 
-export const StatusChip = ({ status }: { status: ComplaintStatus }) => {
-  const key = typeof status === 'string' ? status.toLowerCase() : (status as string)
-  return <Chip size="small" label={labelize(key)} color={colors[key] || 'default'} />
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium border ${getStatusColor(
+        status
+      )} ${className}`}
+    >
+      {status}
+    </span>
+  )
 }
-

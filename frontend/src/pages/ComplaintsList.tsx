@@ -1,135 +1,111 @@
 import { useEffect, useState } from 'react'
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Grid,
-  MenuItem,
-  TextField,
-  Typography,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-} from '@mui/material'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { api } from '../api/client'
-import { Complaint, ComplaintStatus, User } from '../types'
+import { Complaint } from '../types'
+import { TopBar } from '../components/layout'
+import { Button, Input, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui'
 import { StatusChip } from '../components/StatusChip'
 
-const statusOptions: ComplaintStatus[] = [
-  'New',
-  'Acknowledged',
-  'In Investigation',
-  'Response Drafted',
-  'Final Response Issued',
-  'Closed',
-  'Reopened',
-]
-
 export default function ComplaintsList() {
-  const [complaints, setComplaints] = useState<Complaint[]>([])
-  const [users, setUsers] = useState<User[]>([])
-  const [status, setStatus] = useState<string>('')
-  const [search, setSearch] = useState('')
   const navigate = useNavigate()
-
-  const fetchData = () => {
-    api
-      .get<Complaint[]>('/complaints', { params: { status_filter: status || undefined, search: search || undefined } })
-      .then((res) => setComplaints(res.data))
-  }
+  const [complaints, setComplaints] = useState<Complaint[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
-    fetchData()
-    api.get<User[]>('/users').then((res) => setUsers(res.data))
+    api
+      .get<Complaint[]>('/complaints', { params: { page: 1, page_size: 100 } })
+      .then((res) => {
+        setComplaints(res.data || [])
+        setLoading(false)
+      })
+      .catch((err) => {
+        console.error('Failed to load complaints', err)
+        setLoading(false)
+      })
   }, [])
 
-  return (
-    <Box>
-      <Typography variant="h5" gutterBottom>
-        Complaints
-      </Typography>
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={3}>
-              <TextField
-                select
-                label="Status"
-                fullWidth
-                size="small"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <MenuItem value="">All</MenuItem>
-                {statusOptions.map((s) => (
-                  <MenuItem key={s} value={s}>
-                    {s}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={5}>
-              <TextField
-                label="Search ref / policy / name"
-                fullWidth
-                size="small"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={4} display="flex" alignItems="center" gap={1}>
-              <Button variant="contained" onClick={fetchData}>
-                Apply
-              </Button>
-              <Button component={Link} to="/complaints/new">
-                New complaint
-              </Button>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+  const filteredComplaints = complaints.filter((c) =>
+    c.reference.toLowerCase().includes(search.toLowerCase()) ||
+    c.description?.toLowerCase().includes(search.toLowerCase())
+  )
 
-      <Card>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Reference</TableCell>
-              <TableCell>Complainant</TableCell>
-              <TableCell>Product</TableCell>
-              <TableCell>Handler</TableCell>
-              <TableCell>Received</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Due (Final)</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {complaints.map((c) => (
-              <TableRow
-                key={c.id}
-                hover
-                sx={{ cursor: 'pointer' }}
-                onClick={() => navigate(`/complaints/${c.id}`)}
-              >
-                <TableCell>{c.reference}</TableCell>
-                <TableCell>{c.complainant?.full_name}</TableCell>
-                <TableCell>{c.product}</TableCell>
-                <TableCell>{c.assigned_handler_name || 'Unassigned'}</TableCell>
-                <TableCell>{dayjs(c.received_at).format('DD MMM YYYY')}</TableCell>
-                <TableCell>
-                  <StatusChip status={c.status} />
-                </TableCell>
-                <TableCell>{dayjs(c.final_due_at).format('DD MMM YYYY')}</TableCell>
+  return (
+    <>
+      <TopBar title="Complaints" />
+
+      <div className="px-10 py-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="w-full max-w-md">
+            <Input
+              type="search"
+              placeholder="Search complaints..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              leadingIcon={
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              }
+            />
+          </div>
+          <Button variant="primary" onClick={() => navigate('/create')}>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            New Complaint
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-12 text-text-muted">Loading complaints...</div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Reference</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Received</TableHead>
+                <TableHead>Handler</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-    </Box>
+            </TableHeader>
+            <TableBody>
+              {filteredComplaints.map((complaint) => (
+                <TableRow key={complaint.id} onClick={() => navigate(`/complaints/${complaint.id}`)}>
+                  <TableCell>
+                    <span className="font-semibold">{complaint.reference}</span>
+                  </TableCell>
+                  <TableCell>
+                    <StatusChip status={complaint.status} />
+                  </TableCell>
+                  <TableCell>
+                    <span className="truncate max-w-md block">{complaint.description || 'No description'}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-text-muted">{dayjs(complaint.received_at).format('MMM D, YYYY')}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-text-muted">{complaint.assigned_handler_name || 'Unassigned'}</span>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+
+        {!loading && filteredComplaints.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-sm font-semibold text-text-primary">No complaints found</p>
+            <p className="mt-1 text-sm text-text-secondary">Try adjusting your search</p>
+          </div>
+        )}
+      </div>
+    </>
   )
 }
-

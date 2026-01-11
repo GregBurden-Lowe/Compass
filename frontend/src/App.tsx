@@ -1,25 +1,5 @@
 import { useState, useEffect } from 'react'
-import {
-  AppBar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Alert,
-  IconButton,
-  InputAdornment,
-  Stack,
-  TextField,
-  Toolbar,
-  Typography,
-} from '@mui/material'
-import { Visibility, VisibilityOff } from '@mui/icons-material'
-import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import ComplaintsList from './pages/ComplaintsList'
 import ComplaintDetail from './pages/ComplaintDetail'
@@ -28,8 +8,9 @@ import AdminUsers from './pages/AdminUsers'
 import ReferenceData from './pages/ReferenceData'
 import Profile from './pages/Profile'
 import { useAuth } from './context/AuthContext'
+import { AppShell } from './components/layout'
+import { Button, Input, Modal, ModalHeader, ModalBody, ModalFooter } from './components/ui'
 import { QRCodeSVG } from 'qrcode.react'
-const logo = new URL('./assets/compass-logo.png', import.meta.url).href
 import { api } from './api/client'
 
 export default function App() {
@@ -45,22 +26,10 @@ export default function App() {
   const [enrollData, setEnrollData] = useState<{ secret: string; otpauth_url: string } | null>(null)
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null)
   const [remainingSkips, setRemainingSkips] = useState(0)
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
-  // If no token is present, surface a gentle prompt to log in.
-  useEffect(() => {
-    if (!token) {
-      setShowLoginPrompt(true)
-    } else {
-      setShowLoginPrompt(false)
-    }
-  }, [token])
-
-  // Auth gate: if there's no valid token, keep users on the sign-in screen.
-  // Wait until auth has finished initializing so we don't redirect users who
-  // have a token stored but haven't been loaded yet.
+  // Auth gate
   useEffect(() => {
     if (!ready) return
     if (token) return
@@ -68,7 +37,7 @@ export default function App() {
     navigate('/', { replace: true })
   }, [ready, token, location.pathname, navigate])
 
-  // If an admin resets a user's password, force them to change it on next login.
+  // Force password change
   useEffect(() => {
     if (!token) return
     if (!mustChangePassword) return
@@ -137,221 +106,195 @@ export default function App() {
     }
   }
 
-  return (
-    <>
-      <AppBar
-        position="static"
-        color="transparent"
-        elevation={0}
-        sx={{
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          background: 'linear-gradient(135deg, #0f172a 0%, #0f4c81 100%)',
-          color: '#e5e7eb',
-        }}
-      >
-        <Container maxWidth="lg">
-          <Toolbar disableGutters sx={{ py: 1.5, minHeight: 72 }}>
-            <Stack direction="row" alignItems="center" spacing={1.6} sx={{ flexGrow: 1 }}>
-              <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: 0.4, color: '#f8fafc' }}>
-                <Link to="/" style={{ color: 'inherit', textDecoration: 'none' }}>
-                  Compass
-                </Link>
-              </Typography>
-            </Stack>
-            {token && (
-              <Stack direction="row" gap={1.5} alignItems="center">
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.85)' }}>
-                  {name}
-                </Typography>
-                <Button color="inherit" component={Link} to="/" sx={{ fontWeight: 700, color: '#f8fafc' }}>
-                  Dashboard
-                </Button>
-                <Button color="inherit" component={Link} to="/complaints" sx={{ fontWeight: 700, color: '#f8fafc' }}>
-                  Complaints
-                </Button>
-                <Button color="inherit" component={Link} to="/profile" sx={{ fontWeight: 700, color: '#f8fafc' }}>
-                  Profile
-                </Button>
-                <Button
-                  color="inherit"
-                  component={Link}
-                  to="/complaints/new"
-                  disabled={role === 'read_only'}
-                  sx={{ fontWeight: 700, color: '#f8fafc' }}
-                >
-                  New
-                </Button>
-                {role === 'admin' && (
-                  <Button color="inherit" component={Link} to="/admin" sx={{ fontWeight: 700, color: '#f8fafc' }}>
-                    Admin
-                  </Button>
-                )}
-                {role === 'admin' && (
-                  <Button color="inherit" component={Link} to="/reference" sx={{ fontWeight: 700, color: '#f8fafc' }}>
-                    Reference
-                  </Button>
-                )}
-                <Button color="inherit" onClick={logout} sx={{ fontWeight: 700, color: '#f8fafc' }}>
-                  Logout
-                </Button>
-              </Stack>
+  // Login page
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-app flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="rounded-card border border-border bg-surface shadow-card p-8">
+            <div className="mb-6 text-center">
+              <h1 className="text-2xl font-semibold text-text-primary mb-2">Sign in to Compass</h1>
+              <p className="text-sm text-text-secondary">
+                Use your credentials to access the complaints workspace
+              </p>
+            </div>
+
+            {loginError && (
+              <div className="mb-4 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+                {loginError}
+              </div>
             )}
-          </Toolbar>
-        </Container>
-      </AppBar>
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        {!token ? (
-          <Box maxWidth={420} mx="auto" mt={6}>
-            <Card>
-              <CardContent sx={{ p: 4 }}>
-                {showLoginPrompt && (
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    Please log in to continue.
-                  </Alert>
-                )}
-                <Typography variant="h5" gutterBottom>
-                  Sign in {import.meta.env.VITE_DEMO_MODE === 'true' && '(demo mode available)'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Use your credentials to access the complaints workspace.
-                </Typography>
-                {loginError && (
-                  <Typography variant="body2" color="error" sx={{ mb: 1 }}>
-                    {loginError}
-                  </Typography>
-                )}
-                <Box
-                  component="form"
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    onLogin()
-                  }}
-                >
-                  <TextField
-                    label="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    fullWidth
-                    sx={{ mb: 2.5, mt: 1 }}
-                    autoComplete="email"
-                  />
-                  <TextField
-                    label="Password"
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                onLogin()
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-text-primary">Email</label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-text-primary">Password</label>
+                <div className="relative">
+                  <Input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    fullWidth
-                    sx={{ mb: 3 }}
+                    placeholder="••••••••"
                     autoComplete="current-password"
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            onClick={() => setShowPassword((v) => !v)}
-                            edge="end"
-                          >
-                            {showPassword ? <VisibilityOff /> : <Visibility />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
+                    required
                   />
-                  {mfaStep && (
-                    <>
-                      <TextField
-                        label="MFA code (6 digits)"
-                        value={mfaCode}
-                        onChange={(e) => setMfaCode(e.target.value)}
-                        fullWidth
-                        sx={{ mb: 2 }}
-                      />
-                      <TextField
-                        label="Recovery code (optional)"
-                        value={recoveryCode}
-                        onChange={(e) => setRecoveryCode(e.target.value)}
-                        fullWidth
-                        sx={{ mb: 3 }}
-                      />
-                    </>
-                  )}
-                  <Button variant="contained" fullWidth size="large" type="submit">
-                    Login
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          </Box>
-        ) : (
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/complaints" element={<ComplaintsList />} />
-            <Route path="/complaints/new" element={<CreateComplaintWizard />} />
-            <Route path="/complaints/:id" element={<ComplaintDetail />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/admin" element={<AdminUsers />} />
-            <Route path="/reference" element={<ReferenceData />} />
-          </Routes>
-        )}
-      </Container>
-      <Dialog
-        open={showEnroll}
-        onClose={remainingSkips > 0 ? () => setShowEnroll(false) : undefined}
-        disableEscapeKeyDown={remainingSkips <= 0}
-      >
-        <DialogTitle>Set up MFA</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            {remainingSkips <= 0 ? (
-              <Typography color="error">You must enable MFA to continue.</Typography>
-            ) : (
-              <Typography>We recommend enabling MFA. You can skip up to {remainingSkips} more time(s).</Typography>
-            )}
-            {enrollData ? (
-              <>
-                <Typography variant="subtitle2">Scan in your authenticator app</Typography>
-                <Box display="flex" justifyContent="center">
-                  <QRCodeSVG value={enrollData.otpauth_url} size={180} />
-                </Box>
-                <Typography variant="body2">Secret (manual entry): {enrollData.secret}</Typography>
-                <TextField
-                  label="6-digit code"
-                  value={mfaCode}
-                  onChange={(e) => setMfaCode(e.target.value)}
-                  size="small"
-                  sx={{ maxWidth: 240 }}
-                />
-                {recoveryCodes && (
-                  <Box>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Recovery codes (store securely)
-                    </Typography>
-                    <Stack direction="row" gap={1} flexWrap="wrap">
-                      {recoveryCodes.map((c) => (
-                        <Box key={c} sx={{ border: '1px solid #ddd', px: 1.5, py: 0.5, borderRadius: 1, fontFamily: 'monospace' }}>
-                          {c}
-                        </Box>
-                      ))}
-                    </Stack>
-                  </Box>
-                )}
-              </>
-            ) : (
-              <Typography color="text.secondary">Preparing enrollment...</Typography>
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={skipEnroll} disabled={remainingSkips <= 0}>
-            Skip for now
-          </Button>
-          <Button variant="contained" onClick={verifyEnroll} disabled={!mfaCode || mfaCode.length < 6}>
-            Verify & enable
-          </Button>
-        </DialogActions>
-      </Dialog>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition"
+                  >
+                    {showPassword ? (
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
 
-    </>
+              {mfaStep && (
+                <>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">MFA Code (6 digits)</label>
+                    <Input
+                      type="text"
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value)}
+                      placeholder="123456"
+                      maxLength={6}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Recovery Code (optional)</label>
+                    <Input
+                      type="text"
+                      value={recoveryCode}
+                      onChange={(e) => setRecoveryCode(e.target.value)}
+                      placeholder="recovery-code"
+                    />
+                  </div>
+                </>
+              )}
+
+              <Button type="submit" variant="primary" className="w-full mt-6">
+                Sign in
+              </Button>
+            </form>
+          </div>
+        </div>
+
+        {/* MFA Enrollment Modal */}
+        <Modal open={showEnroll} onClose={remainingSkips > 0 ? () => setShowEnroll(false) : () => {}}>
+          <ModalHeader onClose={remainingSkips > 0 ? () => setShowEnroll(false) : undefined}>
+            Set up Multi-Factor Authentication
+          </ModalHeader>
+          <ModalBody>
+            <div className="space-y-4">
+              {remainingSkips <= 0 ? (
+                <div className="rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+                  You must enable MFA to continue.
+                </div>
+              ) : (
+                <p className="text-sm text-text-secondary">
+                  We recommend enabling MFA for enhanced security. You can skip up to {remainingSkips} more time(s).
+                </p>
+              )}
+
+              {enrollData ? (
+                <>
+                  <div>
+                    <p className="text-xs font-medium text-text-primary mb-2">Scan with your authenticator app</p>
+                    <div className="flex justify-center p-4 bg-app rounded-lg">
+                      <QRCodeSVG value={enrollData.otpauth_url} size={180} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-medium text-text-primary mb-1">Manual entry secret</p>
+                    <code className="block text-xs bg-app p-2 rounded border border-border font-mono">
+                      {enrollData.secret}
+                    </code>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Enter 6-digit code</label>
+                    <Input
+                      type="text"
+                      value={mfaCode}
+                      onChange={(e) => setMfaCode(e.target.value)}
+                      placeholder="123456"
+                      maxLength={6}
+                    />
+                  </div>
+
+                  {recoveryCodes && (
+                    <div>
+                      <p className="text-xs font-medium text-text-primary mb-2">
+                        Recovery codes (store securely)
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {recoveryCodes.map((c) => (
+                          <code key={c} className="text-xs bg-app p-2 rounded border border-border font-mono">
+                            {c}
+                          </code>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-text-muted">Preparing enrollment...</p>
+              )}
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="secondary" onClick={skipEnroll} disabled={remainingSkips <= 0}>
+              Skip for now
+            </Button>
+            <Button variant="primary" onClick={verifyEnroll} disabled={!mfaCode || mfaCode.length < 6}>
+              Verify & Enable
+            </Button>
+          </ModalFooter>
+        </Modal>
+      </div>
+    )
+  }
+
+  // Authenticated app
+  return (
+    <AppShell>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/complaints" element={<ComplaintsList />} />
+        <Route path="/create" element={<CreateComplaintWizard />} />
+        <Route path="/complaints/:id" element={<ComplaintDetail />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/users" element={<AdminUsers />} />
+        <Route path="/reference" element={<ReferenceData />} />
+        <Route path="/settings" element={<Profile />} />
+      </Routes>
+    </AppShell>
   )
 }
-

@@ -1,97 +1,130 @@
-import { useMemo, useState } from 'react'
-import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material'
-import { useLocation } from 'react-router-dom'
-import { api } from '../api/client'
+import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { TopBar } from '../components/layout'
+import { Button, Input, Card, CardHeader, CardTitle, CardBody } from '../components/ui'
+import { api } from '../api/client'
 
 export default function Profile() {
-  const { name, mustChangePassword, refreshMe } = useAuth()
-  const location = useLocation()
-  const forced = !!(location.state as any)?.forced || mustChangePassword
-
+  const { user } = useAuth()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const canSubmit = useMemo(() => {
-    if (!newPassword || newPassword.length < 8) return false
-    if (newPassword !== confirmPassword) return false
-    if (!currentPassword) return false
-    return true
-  }, [newPassword, confirmPassword, currentPassword])
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMessage(null)
 
-  const onChangePassword = async () => {
-    setSaving(true)
-    setError(null)
-    setSuccess(null)
+    if (newPassword !== confirmPassword) {
+      setMessage({ type: 'error', text: 'New passwords do not match' })
+      return
+    }
+
+    if (newPassword.length < 8) {
+      setMessage({ type: 'error', text: 'Password must be at least 8 characters' })
+      return
+    }
+
+    setLoading(true)
     try {
-      await api.post('/auth/password/change', { current_password: currentPassword, new_password: newPassword })
+      await api.post('/auth/change-password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      })
+      setMessage({ type: 'success', text: 'Password changed successfully' })
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-      await refreshMe()
-      setSuccess('Password updated.')
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to update password')
+      setMessage({ type: 'error', text: err?.response?.data?.detail || 'Failed to change password' })
     } finally {
-      setSaving(false)
+      setLoading(false)
     }
   }
 
   return (
-    <Box>
-      <Typography variant="h5" gutterBottom>
-        Profile
-      </Typography>
-      <Typography variant="body2" color="text.secondary" gutterBottom>
-        Signed in as {name || '—'}
-      </Typography>
+    <>
+      <TopBar title="Profile & Settings" />
 
-      <Card sx={{ maxWidth: 520, mt: 2 }}>
-        <CardContent>
-          <Stack spacing={2}>
-            {forced && (
-              <Alert severity="warning">
-                Your password has been reset by an admin. You must set a new password before continuing.
-              </Alert>
+      <div className="px-10 py-6 max-w-2xl">
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>User Information</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-4 mt-4">
+              <div>
+                <label className="block text-xs font-medium text-text-primary mb-1">Name</label>
+                <div className="text-sm text-text-primary">{user?.full_name}</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-primary mb-1">Email</label>
+                <div className="text-sm text-text-primary">{user?.email}</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-text-primary mb-1">Role</label>
+                <div className="text-sm text-text-primary capitalize">{user?.role?.replace('_', ' ')}</div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Change Password</CardTitle>
+          </CardHeader>
+          <CardBody>
+            {message && (
+              <div
+                className={`mt-4 rounded-lg border p-3 text-sm ${
+                  message.type === 'success'
+                    ? 'border-semantic-success/30 bg-semantic-success/5 text-semantic-success'
+                    : 'border-semantic-error/30 bg-semantic-error/5 text-semantic-error'
+                }`}
+              >
+                {message.text}
+              </div>
             )}
-            {error && <Alert severity="error">{error}</Alert>}
-            {success && <Alert severity="success">{success}</Alert>}
 
-            <Typography variant="subtitle1">Change password</Typography>
-            <TextField
-              label="Current password"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="New password (min 8 chars)"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Confirm new password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              fullWidth
-            />
+            <form onSubmit={handleChangePassword} className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-text-primary">Current Password</label>
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                />
+              </div>
 
-            <Button variant="contained" onClick={onChangePassword} disabled={!canSubmit || saving}>
-              Update password
-            </Button>
-          </Stack>
-        </CardContent>
-      </Card>
-    </Box>
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-text-primary">New Password</label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-medium text-text-primary">Confirm New Password</label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <Button type="submit" variant="primary" disabled={loading}>
+                {loading ? 'Changing...' : 'Change Password'}
+              </Button>
+            </form>
+          </CardBody>
+        </Card>
+      </div>
+    </>
   )
 }
-
-
