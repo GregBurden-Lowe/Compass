@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import ComplaintsList from './pages/ComplaintsList'
 import ComplaintDetail from './pages/ComplaintDetail'
 import CreateComplaintWizard from './pages/CreateComplaintWizard'
+import MyTasks from './pages/MyTasks'
 import AdminUsers from './pages/AdminUsers'
 import ReferenceData from './pages/ReferenceData'
 import Profile from './pages/Profile'
@@ -287,6 +288,7 @@ export default function App() {
     <AppShell>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/tasks" element={<MyTasks />} />
         <Route path="/complaints" element={<ComplaintsList />} />
         <Route path="/create" element={<CreateComplaintWizard />} />
         <Route path="/complaints/:id" element={<ComplaintDetail />} />
