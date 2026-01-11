@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { api } from '../api/client'
-import { Complaint, Communication, User } from '../types'
+import { Complaint, Communication, User, ComplaintEvent } from '../types'
 import { TopBar } from '../components/layout'
 import { Button, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, ModalBody, ModalFooter, Input } from '../components/ui'
 import { StatusChip } from '../components/StatusChip'
@@ -15,6 +15,7 @@ export default function ComplaintDetail() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [complaint, setComplaint] = useState<Complaint | null>(null)
+  const [events, setEvents] = useState<ComplaintEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [users, setUsers] = useState<User[]>([])
@@ -68,12 +69,22 @@ export default function ComplaintDetail() {
     loadUsers()
   }, [id])
 
+  const loadEvents = () => {
+    if (!id) return
+    api
+      .get<ComplaintEvent[]>(`/complaints/${id}/events`)
+      .then((res) => setEvents(res.data))
+      .catch((err) => console.error('Failed to load events', err))
+  }
+
   const loadComplaint = () => {
+    if (!id) return
     setLoading(true)
     api
       .get<Complaint>(`/complaints/${id}`)
       .then((res) => {
         setComplaint(res.data)
+        loadEvents()
         setLoading(false)
       })
       .catch((err) => {
@@ -842,9 +853,9 @@ export default function ComplaintDetail() {
               <CardTitle>Activity History</CardTitle>
             </CardHeader>
             <CardBody>
-              {complaint.events && complaint.events.length > 0 ? (
+              {events && events.length > 0 ? (
                 <div className="space-y-0 mt-4">
-                  {complaint.events
+                  {events
                     .sort((a, b) => dayjs(b.created_at).valueOf() - dayjs(a.created_at).valueOf())
                     .map((event) => {
                       const getEventIcon = (eventType: string) => {
