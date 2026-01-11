@@ -169,7 +169,9 @@ export default function ComplaintDetail() {
       setCommFiles(null)
       loadComplaint()
     } catch (err: any) {
-      setCommError(err?.response?.data?.detail || 'Failed to add communication')
+      const detail = err?.response?.data?.detail
+      const errorMessage = typeof detail === 'string' ? detail : JSON.stringify(detail) || 'Failed to add communication'
+      setCommError(errorMessage)
     } finally {
       setAddingComm(false)
     }
