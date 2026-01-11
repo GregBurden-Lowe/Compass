@@ -939,8 +939,9 @@ export default function ComplaintDetail() {
           )}
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Select Handler *</label>
+              <label htmlFor="assign-handler" className="block text-xs font-medium text-text-primary">Select Handler *</label>
               <select
+                id="assign-handler"
                 className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
@@ -982,8 +983,9 @@ export default function ComplaintDetail() {
           )}
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Outcome *</label>
+              <label htmlFor="outcome-type" className="block text-xs font-medium text-text-primary">Outcome *</label>
               <select
+                id="outcome-type"
                 className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                 value={outcomeForm.outcome}
                 onChange={(e) => setOutcomeForm({ ...outcomeForm, outcome: e.target.value })}
@@ -1028,8 +1030,9 @@ export default function ComplaintDetail() {
           )}
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Redress Type *</label>
+              <label htmlFor="redress-type" className="block text-xs font-medium text-text-primary">Redress Type *</label>
               <select
+                id="redress-type"
                 className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                 value={redressForm.payment_type}
                 onChange={(e) => setRedressForm({ ...redressForm, payment_type: e.target.value })}
@@ -1059,8 +1062,9 @@ export default function ComplaintDetail() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Status *</label>
+              <label htmlFor="redress-status" className="block text-xs font-medium text-text-primary">Status *</label>
               <select
+                id="redress-status"
                 className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                 value={redressForm.status}
                 onChange={(e) => setRedressForm({ ...redressForm, status: e.target.value })}
@@ -1092,8 +1096,9 @@ export default function ComplaintDetail() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Action Status *</label>
+              <label htmlFor="action-status" className="block text-xs font-medium text-text-primary">Action Status *</label>
               <select
+                id="action-status"
                 className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                 value={redressForm.action_status}
                 onChange={(e) => setRedressForm({ ...redressForm, action_status: e.target.value })}
@@ -1147,8 +1152,9 @@ export default function ComplaintDetail() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="block text-xs font-medium text-text-primary">Channel *</label>
+                <label htmlFor="comm-channel" className="block text-xs font-medium text-text-primary">Channel *</label>
                 <select
+                  id="comm-channel"
                   className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                   value={commForm.channel}
                   onChange={(e) => setCommForm({ ...commForm, channel: e.target.value })}
@@ -1162,8 +1168,9 @@ export default function ComplaintDetail() {
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="block text-xs font-medium text-text-primary">Direction *</label>
+                <label htmlFor="comm-direction" className="block text-xs font-medium text-text-primary">Direction *</label>
                 <select
+                  id="comm-direction"
                   className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                   value={commForm.direction}
                   onChange={(e) => setCommForm({ ...commForm, direction: e.target.value })}
@@ -1194,8 +1201,9 @@ export default function ComplaintDetail() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Attachments</label>
+              <label htmlFor="comm-attachments" className="block text-xs font-medium text-text-primary">Attachments</label>
               <input
+                id="comm-attachments"
                 type="file"
                 multiple
                 onChange={(e) => setCommFiles(e.target.files)}
