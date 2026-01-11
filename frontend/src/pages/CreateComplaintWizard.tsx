@@ -1,14 +1,37 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { api } from '../api/client'
 import { TopBar } from '../components/layout'
-import { Button, Input, Card, CardHeader, CardTitle, CardBody } from '../components/ui'
+import { Button, Input, Card, CardHeader, CardTitle, CardBody, Combobox } from '../components/ui'
+import type { ReferenceItem } from '../types'
 
 export default function CreateComplaintWizard() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Reference data
+  const [products, setProducts] = useState<string[]>([])
+  const [insurers, setInsurers] = useState<string[]>([])
+  const [brokers, setBrokers] = useState<string[]>([])
+
+  // Load reference data
+  useEffect(() => {
+    Promise.all([
+      api.get<ReferenceItem[]>('/reference/products'),
+      api.get<ReferenceItem[]>('/reference/insurers'),
+      api.get<ReferenceItem[]>('/reference/brokers'),
+    ])
+      .then(([productsRes, insurersRes, brokersRes]) => {
+        setProducts(productsRes.data.map((item) => item.name))
+        setInsurers(insurersRes.data.map((item) => item.name))
+        setBrokers(brokersRes.data.map((item) => item.name))
+      })
+      .catch((err) => {
+        console.error('Failed to load reference data', err)
+      })
+  }, [])
 
   const [formData, setFormData] = useState({
     source: 'Email',
@@ -266,10 +289,11 @@ export default function CreateComplaintWizard() {
                   </div>
                   <div className="space-y-2">
                     <label className="block text-xs font-medium text-text-primary">Product</label>
-                    <Input
+                    <Combobox
                       value={formData.product}
-                      onChange={(e) => setFormData({ ...formData, product: e.target.value })}
-                      placeholder="Product type..."
+                      onChange={(value) => setFormData({ ...formData, product: value })}
+                      options={products}
+                      placeholder="Select or type product..."
                     />
                   </div>
                 </div>
@@ -277,18 +301,20 @@ export default function CreateComplaintWizard() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="block text-xs font-medium text-text-primary">Insurer</label>
-                    <Input
+                    <Combobox
                       value={formData.insurer}
-                      onChange={(e) => setFormData({ ...formData, insurer: e.target.value })}
-                      placeholder="Insurer name..."
+                      onChange={(value) => setFormData({ ...formData, insurer: value })}
+                      options={insurers}
+                      placeholder="Select or type insurer..."
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="block text-xs font-medium text-text-primary">Broker</label>
-                    <Input
+                    <Combobox
                       value={formData.broker}
-                      onChange={(e) => setFormData({ ...formData, broker: e.target.value })}
-                      placeholder="Broker name..."
+                      onChange={(value) => setFormData({ ...formData, broker: value })}
+                      options={brokers}
+                      placeholder="Select or type broker..."
                     />
                   </div>
                 </div>
