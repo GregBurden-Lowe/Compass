@@ -170,7 +170,17 @@ export default function ComplaintDetail() {
       loadComplaint()
     } catch (err: any) {
       const detail = err?.response?.data?.detail
-      const errorMessage = typeof detail === 'string' ? detail : JSON.stringify(detail) || 'Failed to add communication'
+      let errorMessage = 'Failed to add communication'
+      
+      if (typeof detail === 'string') {
+        errorMessage = detail
+      } else if (Array.isArray(detail)) {
+        // FastAPI validation errors are arrays of error objects
+        errorMessage = detail.map((e: any) => e.msg || JSON.stringify(e)).join(', ')
+      } else if (detail && typeof detail === 'object') {
+        errorMessage = JSON.stringify(detail)
+      }
+      
       setCommError(errorMessage)
     } finally {
       setAddingComm(false)
