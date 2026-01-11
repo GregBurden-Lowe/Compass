@@ -28,8 +28,8 @@ export default function ComplaintDetail() {
   // Communication modal
   const [showCommModal, setShowCommModal] = useState(false)
   const [commForm, setCommForm] = useState({
-    channel: 'Email',
-    direction: 'Inbound',
+    channel: 'email',
+    direction: 'inbound',
     summary: '',
     occurred_at: dayjs().format('YYYY-MM-DDTHH:mm'),
     is_final_response: false,
@@ -160,8 +160,8 @@ export default function ComplaintDetail() {
 
       setShowCommModal(false)
       setCommForm({
-        channel: 'Email',
-        direction: 'Inbound',
+        channel: 'email',
+        direction: 'inbound',
         summary: '',
         occurred_at: dayjs().format('YYYY-MM-DDTHH:mm'),
         is_final_response: false,
@@ -1153,12 +1153,12 @@ export default function ComplaintDetail() {
                   value={commForm.channel}
                   onChange={(e) => setCommForm({ ...commForm, channel: e.target.value })}
                 >
-                  <option value="Email">Email</option>
-                  <option value="Phone">Phone</option>
-                  <option value="Letter">Letter</option>
-                  <option value="In Person">In Person</option>
-                  <option value="Web Form">Web Form</option>
-                  <option value="Social Media">Social Media</option>
+                  <option value="email">Email</option>
+                  <option value="phone">Phone</option>
+                  <option value="letter">Letter</option>
+                  <option value="web">Web Form</option>
+                  <option value="third_party">Third Party</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
               <div className="space-y-2">
@@ -1168,8 +1168,8 @@ export default function ComplaintDetail() {
                   value={commForm.direction}
                   onChange={(e) => setCommForm({ ...commForm, direction: e.target.value })}
                 >
-                  <option value="Inbound">Inbound</option>
-                  <option value="Outbound">Outbound</option>
+                  <option value="inbound">Inbound</option>
+                  <option value="outbound">Outbound</option>
                 </select>
               </div>
             </div>
