@@ -491,28 +491,85 @@ export default function ComplaintDetail() {
             </CardHeader>
             <CardBody>
               {complaint.events && complaint.events.length > 0 ? (
-                <div className="space-y-4 mt-4">
-                  {complaint.events.map((event) => (
-                    <div key={event.id} className="flex gap-3 pb-4 border-b border-border last:border-0">
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <p className="text-sm font-medium text-text-primary">{event.event_type.replace('_', ' ')}</p>
-                          <span className="text-xs text-text-muted">
-                            {dayjs(event.created_at).format('MMM D, YYYY h:mm A')}
-                          </span>
+                <div className="space-y-0 mt-4">
+                  {complaint.events
+                    .sort((a, b) => dayjs(b.created_at).valueOf() - dayjs(a.created_at).valueOf())
+                    .map((event) => {
+                      const getEventIcon = (eventType: string) => {
+                        if (eventType === 'created') return '📋'
+                        if (eventType === 'accessed') return '👁️'
+                        if (eventType === 'updated') return '✏️'
+                        if (eventType === 'acknowledged') return '✅'
+                        if (eventType === 'investigation_started') return '🔍'
+                        if (eventType === 'response_drafted') return '📝'
+                        if (eventType === 'outcome_recorded') return '⚖️'
+                        if (eventType === 'final_response_issued') return '📨'
+                        if (eventType === 'closed') return '🔒'
+                        if (eventType === 'closed_non_reportable') return '🚫'
+                        if (eventType === 'reopened') return '🔓'
+                        if (eventType === 'escalated') return '⬆️'
+                        if (eventType === 'assigned') return '👤'
+                        if (eventType === 'referred_to_fos') return '🏛️'
+                        if (eventType === 'communication_added') return '💬'
+                        if (eventType === 'redress_added' || eventType === 'redress_updated') return '💰'
+                        return '•'
+                      }
+
+                      const formatEventType = (eventType: string) => {
+                        return eventType
+                          .split('_')
+                          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(' ')
+                      }
+
+                      return (
+                        <div key={event.id} className="flex gap-4 py-3 border-b border-border last:border-0 hover:bg-surface/50 transition px-3 -mx-3 rounded-lg">
+                          <div className="flex-shrink-0 text-lg pt-0.5">
+                            {getEventIcon(event.event_type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-text-primary">
+                                  {formatEventType(event.event_type)}
+                                </p>
+                                {event.description && (
+                                  <p className="text-sm text-text-secondary mt-1">{event.description}</p>
+                                )}
+                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                  {event.created_by_name && (
+                                    <span className="text-xs text-text-muted">
+                                      by {event.created_by_name}
+                                    </span>
+                                  )}
+                                  <span className="text-xs text-text-muted">
+                                    {dayjs(event.created_at).format('MMM D, YYYY [at] h:mm A')}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        {event.description && (
-                          <p className="text-xs text-text-secondary mt-1">{event.description}</p>
-                        )}
-                        {event.created_by_name && (
-                          <p className="text-xs text-text-muted mt-1">by {event.created_by_name}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                      )
+                    })}
                 </div>
               ) : (
-                <p className="text-sm text-text-secondary mt-4">No history events recorded</p>
+                <div className="text-center py-12 mt-4">
+                  <svg
+                    className="mx-auto h-12 w-12 text-text-muted"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <p className="mt-4 text-sm font-semibold text-text-primary">No history events recorded</p>
+                </div>
               )}
             </CardBody>
           </Card>
