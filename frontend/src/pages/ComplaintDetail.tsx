@@ -349,29 +349,138 @@ export default function ComplaintDetail() {
 
         {/* Outcome Tab */}
         {activeTab === 'outcome' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Outcome & Redress</CardTitle>
-            </CardHeader>
-            <CardBody>
-              {complaint.outcome ? (
-                <div className="space-y-3 mt-4">
-                  <div>
-                    <label className="block text-xs font-medium text-text-primary mb-1">Outcome</label>
-                    <p className="text-sm text-text-primary capitalize">{complaint.outcome.outcome.replace('_', ' ')}</p>
-                  </div>
-                  {complaint.outcome.notes && (
+          <div className="space-y-6">
+            {/* Outcome Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Outcome</CardTitle>
+              </CardHeader>
+              <CardBody>
+                {complaint.outcome ? (
+                  <div className="space-y-3 mt-4">
                     <div>
-                      <label className="block text-xs font-medium text-text-primary mb-1">Notes</label>
-                      <p className="text-sm text-text-secondary">{complaint.outcome.notes}</p>
+                      <label className="block text-xs font-medium text-text-primary mb-1">Outcome Type</label>
+                      <p className="text-sm text-text-primary capitalize">
+                        {complaint.outcome.outcome.replace(/_/g, ' ')}
+                      </p>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-text-secondary mt-4">No outcome recorded yet</p>
-              )}
-            </CardBody>
-          </Card>
+                    {complaint.outcome.notes && (
+                      <div>
+                        <label className="block text-xs font-medium text-text-primary mb-1">Notes</label>
+                        <p className="text-sm text-text-secondary">{complaint.outcome.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-text-secondary mt-4">No outcome recorded yet</p>
+                )}
+              </CardBody>
+            </Card>
+
+            {/* Redress Payments Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Redress Payments</CardTitle>
+              </CardHeader>
+              <CardBody>
+                {complaint.redress_payments && complaint.redress_payments.length > 0 ? (
+                  <div className="space-y-4 mt-4">
+                    {complaint.redress_payments.map((redress) => (
+                      <div key={redress.id} className="p-4 rounded-lg border border-border bg-surface">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <p className="text-sm font-semibold text-text-primary capitalize">
+                              {redress.payment_type.replace(/_/g, ' ')}
+                            </p>
+                            {redress.amount && (
+                              <p className="text-lg font-bold text-text-primary mt-1">
+                                £{redress.amount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
+                                redress.status === 'paid'
+                                  ? 'bg-semantic-success/10 text-semantic-success'
+                                  : redress.status === 'authorised'
+                                  ? 'bg-semantic-warning/10 text-semantic-warning'
+                                  : 'bg-app text-text-primary border border-border'
+                              }`}
+                            >
+                              {redress.status.charAt(0).toUpperCase() + redress.status.slice(1)}
+                            </span>
+                            {redress.approved && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-success/10 text-semantic-success border border-semantic-success/20">
+                                <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Approved
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {redress.rationale && (
+                          <div className="mb-3">
+                            <label className="block text-xs font-medium text-text-primary mb-1">Rationale</label>
+                            <p className="text-sm text-text-secondary">{redress.rationale}</p>
+                          </div>
+                        )}
+
+                        {redress.action_description && (
+                          <div className="mb-3">
+                            <label className="block text-xs font-medium text-text-primary mb-1">Action</label>
+                            <div className="flex items-start justify-between">
+                              <p className="text-sm text-text-secondary flex-1">{redress.action_description}</p>
+                              {redress.action_status && (
+                                <span
+                                  className={`ml-3 inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium capitalize ${
+                                    redress.action_status === 'completed'
+                                      ? 'bg-semantic-success/10 text-semantic-success'
+                                      : redress.action_status === 'in_progress'
+                                      ? 'bg-semantic-info/10 text-semantic-info'
+                                      : 'bg-app text-text-muted border border-border'
+                                  }`}
+                                >
+                                  {redress.action_status.replace(/_/g, ' ')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {redress.notes && (
+                          <div>
+                            <label className="block text-xs font-medium text-text-primary mb-1">Notes</label>
+                            <p className="text-sm text-text-secondary">{redress.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 mt-4">
+                    <svg
+                      className="mx-auto h-12 w-12 text-text-muted"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <p className="mt-4 text-sm font-semibold text-text-primary">No redress payments</p>
+                    <p className="mt-1 text-sm text-text-secondary">No redress payments have been recorded for this complaint</p>
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          </div>
         )}
 
         {/* History Tab */}
