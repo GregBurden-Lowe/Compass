@@ -130,13 +130,17 @@ export function Sidebar() {
 
       {/* User Footer */}
       <div className="mt-auto pt-6 border-t border-border">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-10 w-10 rounded-full bg-app flex items-center justify-center text-text-primary font-semibold text-sm">
-            {user?.full_name?.charAt(0) || 'U'}
+        <div className="flex items-center gap-3 mb-3 px-2">
+          <div className="h-10 w-10 rounded-full bg-brand flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-text-primary truncate">{user?.full_name}</div>
-            <div className="text-xs text-text-muted truncate capitalize">{user?.role?.replace('_', ' ')}</div>
+            <div className="text-sm font-semibold text-text-primary truncate">
+              {user?.full_name || 'User'}
+            </div>
+            <div className="text-xs text-text-secondary truncate capitalize">
+              {user?.role?.replace(/_/g, ' ') || 'User'}
+            </div>
           </div>
         </div>
         <button
