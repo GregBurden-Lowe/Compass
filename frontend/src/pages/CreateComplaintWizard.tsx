@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import dayjs from 'dayjs'
 import { api } from '../api/client'
 import { TopBar } from '../components/layout'
 import { Button, Input, Card, CardHeader, CardTitle, CardBody } from '../components/ui'
@@ -10,15 +11,31 @@ export default function CreateComplaintWizard() {
   const [error, setError] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
+    source: 'Email',
+    received_at: dayjs().format('YYYY-MM-DDTHH:mm'),
     description: '',
     category: '',
     reason: '',
+    fca_complaint: false,
+    fca_rationale: '',
+    vulnerability_flag: false,
+    vulnerability_notes: '',
+    // Policy fields
+    policy_number: '',
+    insurer: '',
+    broker: '',
     product: '',
     scheme: '',
+    // Complainant fields
     complainant_name: '',
     complainant_email: '',
     complainant_phone: '',
+    complainant_address: '',
   })
+
+  const handleCheckbox = (field: 'fca_complaint' | 'vulnerability_flag') => {
+    setFormData({ ...formData, [field]: !formData[field] })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,15 +44,32 @@ export default function CreateComplaintWizard() {
 
     try {
       const res = await api.post('/complaints', {
+        source: formData.source,
+        received_at: dayjs(formData.received_at).toISOString(),
         description: formData.description,
         category: formData.category,
-        reason: formData.reason,
-        product: formData.product,
-        scheme: formData.scheme,
+        reason: formData.reason || null,
+        fca_complaint: formData.fca_complaint,
+        fca_rationale: formData.fca_rationale || null,
+        vulnerability_flag: formData.vulnerability_flag,
+        vulnerability_notes: formData.vulnerability_notes || null,
+        policy_number: formData.policy_number || null,
+        insurer: formData.insurer || null,
+        broker: formData.broker || null,
+        product: formData.product || null,
+        scheme: formData.scheme || null,
         complainant: {
           full_name: formData.complainant_name,
-          email: formData.complainant_email,
-          phone: formData.complainant_phone,
+          email: formData.complainant_email || null,
+          phone: formData.complainant_phone || null,
+          address: formData.complainant_address || null,
+        },
+        policy: {
+          policy_number: formData.policy_number || null,
+          insurer: formData.insurer || null,
+          broker: formData.broker || null,
+          product: formData.product || null,
+          scheme: formData.scheme || null,
         },
       })
 
@@ -50,7 +84,7 @@ export default function CreateComplaintWizard() {
     <>
       <TopBar title="Create New Complaint" />
 
-      <div className="px-10 py-6 max-w-3xl">
+      <div className="px-10 py-6 max-w-4xl">
         {error && (
           <div className="mb-6 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
             {error}
@@ -58,52 +92,37 @@ export default function CreateComplaintWizard() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Source & Receipt */}
           <Card>
             <CardHeader>
-              <CardTitle>Complaint Information</CardTitle>
+              <CardTitle>Receipt Information</CardTitle>
             </CardHeader>
             <CardBody>
               <div className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <label className="block text-xs font-medium text-text-primary">Description *</label>
-                  <textarea
-                    className="w-full min-h-[100px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    required
-                  />
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Category</label>
-                    <Input
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    />
+                    <label className="block text-xs font-medium text-text-primary">Source *</label>
+                    <select
+                      className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                      value={formData.source}
+                      onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                      required
+                    >
+                      <option value="Email">Email</option>
+                      <option value="Phone">Phone</option>
+                      <option value="Letter">Letter</option>
+                      <option value="Web Form">Web Form</option>
+                      <option value="In Person">In Person</option>
+                      <option value="Social Media">Social Media</option>
+                    </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Reason</label>
+                    <label className="block text-xs font-medium text-text-primary">Date Received *</label>
                     <Input
-                      value={formData.reason}
-                      onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Product</label>
-                    <Input
-                      value={formData.product}
-                      onChange={(e) => setFormData({ ...formData, product: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Scheme</label>
-                    <Input
-                      value={formData.scheme}
-                      onChange={(e) => setFormData({ ...formData, scheme: e.target.value })}
+                      type="datetime-local"
+                      value={formData.received_at}
+                      onChange={(e) => setFormData({ ...formData, received_at: e.target.value })}
+                      required
                     />
                   </div>
                 </div>
@@ -111,6 +130,182 @@ export default function CreateComplaintWizard() {
             </CardBody>
           </Card>
 
+          {/* Complaint Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Complaint Details</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <div className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Description *</label>
+                  <textarea
+                    className="w-full min-h-[120px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Detailed description of the complaint..."
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Category *</label>
+                    <select
+                      className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      required
+                    >
+                      <option value="">Select category...</option>
+                      <option value="Claims">Claims</option>
+                      <option value="Policy">Policy</option>
+                      <option value="Service">Service</option>
+                      <option value="Premium">Premium</option>
+                      <option value="Communication">Communication</option>
+                      <option value="Sales">Sales</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Reason</label>
+                    <Input
+                      value={formData.reason}
+                      onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                      placeholder="Specific reason..."
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* FCA & Vulnerability */}
+          <Card>
+            <CardHeader>
+              <CardTitle>FCA & Vulnerability</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <div className="space-y-4 mt-4">
+                {/* FCA Complaint */}
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.fca_complaint}
+                      onChange={() => handleCheckbox('fca_complaint')}
+                      className="h-4 w-4 rounded border-border text-brand focus:ring-2 focus:ring-brand/15"
+                    />
+                    <span className="text-sm font-medium text-text-primary">
+                      FCA Reportable Complaint
+                    </span>
+                  </label>
+                  {formData.fca_complaint && (
+                    <div className="pl-7 space-y-2">
+                      <label className="block text-xs font-medium text-text-primary">
+                        FCA Rationale
+                      </label>
+                      <textarea
+                        className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        value={formData.fca_rationale}
+                        onChange={(e) => setFormData({ ...formData, fca_rationale: e.target.value })}
+                        placeholder="Rationale for FCA reporting..."
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Vulnerability */}
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.vulnerability_flag}
+                      onChange={() => handleCheckbox('vulnerability_flag')}
+                      className="h-4 w-4 rounded border-border text-brand focus:ring-2 focus:ring-brand/15"
+                    />
+                    <span className="text-sm font-medium text-text-primary">
+                      Vulnerable Customer
+                    </span>
+                  </label>
+                  {formData.vulnerability_flag && (
+                    <div className="pl-7 space-y-2">
+                      <label className="block text-xs font-medium text-text-primary">
+                        Vulnerability Notes
+                      </label>
+                      <textarea
+                        className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        value={formData.vulnerability_notes}
+                        onChange={(e) =>
+                          setFormData({ ...formData, vulnerability_notes: e.target.value })
+                        }
+                        placeholder="Details about vulnerability..."
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Policy Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Policy Information</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Policy Number</label>
+                    <Input
+                      value={formData.policy_number}
+                      onChange={(e) => setFormData({ ...formData, policy_number: e.target.value })}
+                      placeholder="POL-12345"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Product</label>
+                    <Input
+                      value={formData.product}
+                      onChange={(e) => setFormData({ ...formData, product: e.target.value })}
+                      placeholder="Product type..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Insurer</label>
+                    <Input
+                      value={formData.insurer}
+                      onChange={(e) => setFormData({ ...formData, insurer: e.target.value })}
+                      placeholder="Insurer name..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Broker</label>
+                    <Input
+                      value={formData.broker}
+                      onChange={(e) => setFormData({ ...formData, broker: e.target.value })}
+                      placeholder="Broker name..."
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Scheme</label>
+                  <Input
+                    value={formData.scheme}
+                    onChange={(e) => setFormData({ ...formData, scheme: e.target.value })}
+                    placeholder="Scheme name..."
+                  />
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Complainant Details */}
           <Card>
             <CardHeader>
               <CardTitle>Complainant Details</CardTitle>
@@ -122,6 +317,7 @@ export default function CreateComplaintWizard() {
                   <Input
                     value={formData.complainant_name}
                     onChange={(e) => setFormData({ ...formData, complainant_name: e.target.value })}
+                    placeholder="John Doe"
                     required
                   />
                 </div>
@@ -132,27 +328,69 @@ export default function CreateComplaintWizard() {
                     <Input
                       type="email"
                       value={formData.complainant_email}
-                      onChange={(e) => setFormData({ ...formData, complainant_email: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, complainant_email: e.target.value })
+                      }
+                      placeholder="john@example.com"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="block text-xs font-medium text-text-primary">Phone</label>
                     <Input
                       value={formData.complainant_phone}
-                      onChange={(e) => setFormData({ ...formData, complainant_phone: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, complainant_phone: e.target.value })
+                      }
+                      placeholder="+44 20 1234 5678"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Address</label>
+                  <textarea
+                    className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    value={formData.complainant_address}
+                    onChange={(e) => setFormData({ ...formData, complainant_address: e.target.value })}
+                    placeholder="Full address..."
+                  />
                 </div>
               </div>
             </CardBody>
           </Card>
 
-          <div className="flex justify-end gap-3">
+          {/* Actions */}
+          <div className="flex justify-end gap-3 sticky bottom-6 bg-app/95 backdrop-blur-sm p-4 rounded-lg border border-border">
             <Button variant="secondary" onClick={() => navigate('/complaints')} type="button">
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Complaint'}
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <svg
+                    className="animate-spin h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  Creating...
+                </span>
+              ) : (
+                'Create Complaint'
+              )}
             </Button>
           </div>
         </form>
