@@ -178,6 +178,18 @@ export default function ComplaintDetail() {
     )
   }
 
+  const handleStatusChange = async (endpoint: string, successMessage: string) => {
+    if (!id) return
+
+    try {
+      await api.post(`/complaints/${id}/${endpoint}`)
+      alert(successMessage)
+      loadComplaint()
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || `Failed to ${successMessage.toLowerCase()}`)
+    }
+  }
+
   return (
     <>
       <TopBar
@@ -217,6 +229,108 @@ export default function ComplaintDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Content */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Action Buttons */}
+              {user?.role !== 'read_only' && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Actions</CardTitle>
+                  </CardHeader>
+                  <CardBody>
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {!complaint.acknowledged_at && (complaint.status === 'New' || complaint.status === 'Reopened') && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleStatusChange('acknowledge', 'Complaint acknowledged')}
+                        >
+                          ✅ Acknowledge
+                        </Button>
+                      )}
+                      
+                      {(complaint.status === 'Acknowledged' || complaint.status === 'New' || complaint.status === 'Reopened') && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleStatusChange('investigate', 'Investigation started')}
+                        >
+                          🔍 Start Investigation
+                        </Button>
+                      )}
+                      
+                      {complaint.status === 'In Investigation' && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => navigate(`/complaints/${id}`)}
+                        >
+                          📝 Draft Response
+                        </Button>
+                      )}
+                      
+                      {complaint.outcome && !complaint.final_response_at && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleStatusChange('final-response', 'Final response issued')}
+                        >
+                          📨 Issue Final Response
+                        </Button>
+                      )}
+                      
+                      {complaint.final_response_at && complaint.status !== 'Closed' && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleStatusChange('close', 'Complaint closed')}
+                        >
+                          🔒 Close Complaint
+                        </Button>
+                      )}
+                      
+                      {complaint.status !== 'Closed' && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleStatusChange('close-non-reportable', 'Closed as non-reportable')}
+                        >
+                          🚫 Close as Non-Reportable
+                        </Button>
+                      )}
+                      
+                      {complaint.fos_complaint ? (
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-semantic-info/10 text-semantic-info border border-semantic-info/20">
+                          <span className="text-sm font-medium">🏛️ Referred to FOS</span>
+                          {complaint.fos_reference && (
+                            <span className="text-xs">({complaint.fos_reference})</span>
+                          )}
+                        </div>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            const reference = prompt('Enter FOS Reference:')
+                            if (reference) {
+                              api.post(`/complaints/${id}/refer-to-fos`, {
+                                fos_reference: reference,
+                                fos_referred_at: new Date().toISOString(),
+                              }).then(() => {
+                                alert('Complaint referred to FOS')
+                                loadComplaint()
+                              }).catch((err: any) => {
+                                alert(err?.response?.data?.detail || 'Failed to refer to FOS')
+                              })
+                            }
+                          }}
+                        >
+                          🏛️ Refer to Ombudsman
+                        </Button>
+                      )}
+                    </div>
+                  </CardBody>
+                </Card>
+              )}
+              
               <Card>
                 <CardHeader>
                   <CardTitle>Complaint Details</CardTitle>
