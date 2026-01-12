@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from typing import Iterable, Optional
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 
 from app.models.complaint import Complaint
 from app.models.complainant import Complainant
@@ -28,9 +29,27 @@ from app.core.config import get_settings
 
 
 def generate_reference(db: Session) -> str:
+    """
+    Generate a unique complaint reference in the format CMP-YYYY-NNNNNN.
+
+    IMPORTANT: must be safe under concurrency (multiple workers).
+    Uses an atomic UPSERT against complaint_reference_counter.
+    """
     year = datetime.now(timezone.utc).year
-    count = db.execute(select(func.count(Complaint.id))).scalar_one()
-    return f"CMP-{year}-{count + 1:06d}"
+    # last_used is incremented atomically and returned
+    seq = db.execute(
+        text(
+            """
+            INSERT INTO complaint_reference_counter (year, last_used)
+            VALUES (:year, 1)
+            ON CONFLICT (year)
+            DO UPDATE SET last_used = complaint_reference_counter.last_used + 1
+            RETURNING last_used
+            """
+        ),
+        {"year": year},
+    ).scalar_one()
+    return f"CMP-{year}-{int(seq):06d}"
 
 
 def calculate_slas(received_at: datetime) -> tuple[datetime, datetime]:
@@ -51,20 +70,31 @@ def create_complaint(
         complaint_data["vulnerability_flag"] = True
     if complaint_data.get("category") == "Other / Unclassified" and not (complaint_data.get("reason") or "").strip():
         raise ValueError("Reason is required when category is Other / Unclassified")
-    reference = generate_reference(db)
-    ack_due, final_due = calculate_slas(complaint_data["received_at"])
-    complaint = Complaint(
-        reference=reference,
-        ack_due_at=ack_due,
-        final_due_at=final_due,
-        **complaint_data,
-    )
-    complaint.complainant = Complainant(**complainant_data)
-    complaint.policy = Policy(**policy_data)
-    db.add(complaint)
-    db.flush()
-    add_event(db, complaint, "created", f"Complaint created with ref {reference}")
-    return complaint
+    # Reference generation is concurrency-safe via complaint_reference_counter,
+    # but keep a small retry loop as belt-and-braces (e.g., if counter table is missing during deploy).
+    last_exc: Exception | None = None
+    for _ in range(3):
+        reference = generate_reference(db)
+        ack_due, final_due = calculate_slas(complaint_data["received_at"])
+        complaint = Complaint(
+            reference=reference,
+            ack_due_at=ack_due,
+            final_due_at=final_due,
+            **complaint_data,
+        )
+        complaint.complainant = Complainant(**complainant_data)
+        complaint.policy = Policy(**policy_data)
+        db.add(complaint)
+        try:
+            db.flush()
+            add_event(db, complaint, "created", f"Complaint created with ref {reference}")
+            return complaint
+        except IntegrityError as exc:
+            db.rollback()
+            last_exc = exc
+            continue
+
+    raise last_exc or RuntimeError("Failed to create complaint")
 
 
 def add_event(db: Session, complaint: Complaint, event_type: str, description: str, user_id: Optional[str] = None) -> None:
