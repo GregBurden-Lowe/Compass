@@ -19,6 +19,7 @@ export default function App() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [loggingIn, setLoggingIn] = useState(false)
   const [mfaCode, setMfaCode] = useState('')
   const [recoveryCode, setRecoveryCode] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -27,6 +28,7 @@ export default function App() {
   const [enrollData, setEnrollData] = useState<{ secret: string; otpauth_url: string } | null>(null)
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null)
   const [remainingSkips, setRemainingSkips] = useState(0)
+  const [verifying, setVerifying] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -48,6 +50,7 @@ export default function App() {
 
   const onLogin = async () => {
     setLoginError(null)
+    setLoggingIn(true)
     try {
       const res = await login(email, password, mfaStep ? mfaCode : undefined, mfaStep ? recoveryCode : undefined)
       setMfaStep(false)
@@ -69,6 +72,8 @@ export default function App() {
       } else {
         setLoginError('Login failed. Check your credentials.')
       }
+    } finally {
+      setLoggingIn(false)
     }
   }
 
@@ -84,6 +89,7 @@ export default function App() {
   }
 
   const verifyEnroll = async () => {
+    setVerifying(true)
     try {
       const res = await api.post('/auth/mfa/verify', { code: mfaCode })
       setRecoveryCodes(res.data.recovery_codes)
@@ -93,6 +99,8 @@ export default function App() {
       navigate('/')
     } catch (err: any) {
       setLoginError(err?.response?.data?.detail || 'Invalid code')
+    } finally {
+      setVerifying(false)
     }
   }
 
@@ -105,6 +113,14 @@ export default function App() {
     } catch (err: any) {
       setLoginError(err?.response?.data?.detail || 'Cannot skip MFA')
     }
+  }
+
+  const copyAllRecoveryCodes = () => {
+    if (!recoveryCodes) return
+    const text = recoveryCodes.join('\n')
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Recovery codes copied to clipboard')
+    })
   }
 
   // Login page
@@ -159,6 +175,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition"
                   >
                     {showPassword ? (
@@ -181,6 +198,7 @@ export default function App() {
                     <label className="block text-xs font-medium text-text-primary">MFA Code (6 digits)</label>
                     <Input
                       type="text"
+                      autoFocus
                       value={mfaCode}
                       onChange={(e) => setMfaCode(e.target.value)}
                       placeholder="123456"
@@ -199,16 +217,19 @@ export default function App() {
                 </>
               )}
 
-              <Button type="submit" variant="primary" className="w-full mt-6">
-                Sign in
+              <Button type="submit" variant="primary" className="w-full mt-6" disabled={loggingIn}>
+                {loggingIn ? 'Signing in...' : 'Sign in'}
               </Button>
             </form>
           </div>
         </div>
 
         {/* MFA Enrollment Modal */}
-        <Modal open={showEnroll} onClose={remainingSkips > 0 ? () => setShowEnroll(false) : () => {}}>
-          <ModalHeader onClose={remainingSkips > 0 ? () => setShowEnroll(false) : undefined}>
+        <Modal
+          open={showEnroll}
+          onClose={remainingSkips > 0 ? () => { setShowEnroll(false); setLoginError(null); } : () => {}}
+        >
+          <ModalHeader onClose={remainingSkips > 0 ? () => { setShowEnroll(false); setLoginError(null); } : undefined}>
             Set up Multi-Factor Authentication
           </ModalHeader>
           <ModalBody>
@@ -243,6 +264,7 @@ export default function App() {
                     <label className="block text-xs font-medium text-text-primary">Enter 6-digit code</label>
                     <Input
                       type="text"
+                      autoFocus
                       value={mfaCode}
                       onChange={(e) => setMfaCode(e.target.value)}
                       placeholder="123456"
@@ -252,9 +274,17 @@ export default function App() {
 
                   {recoveryCodes && (
                     <div>
-                      <p className="text-xs font-medium text-text-primary mb-2">
-                        Recovery codes (store securely)
-                      </p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-medium text-text-primary">
+                          Recovery codes (store securely)
+                        </p>
+                        <button
+                          onClick={copyAllRecoveryCodes}
+                          className="text-xs text-brand hover:text-brand-dark font-medium"
+                        >
+                          Copy All
+                        </button>
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         {recoveryCodes.map((c) => (
                           <code key={c} className="text-xs bg-app p-2 rounded border border-border font-mono">
@@ -262,6 +292,9 @@ export default function App() {
                           </code>
                         ))}
                       </div>
+                      <p className="text-xs text-text-muted mt-2">
+                        Save these codes in a secure location. They can be used to access your account if you lose your authenticator device.
+                      </p>
                     </div>
                   )}
                 </>
@@ -274,8 +307,8 @@ export default function App() {
             <Button variant="secondary" onClick={skipEnroll} disabled={remainingSkips <= 0}>
               Skip for now
             </Button>
-            <Button variant="primary" onClick={verifyEnroll} disabled={!mfaCode || mfaCode.length < 6}>
-              Verify & Enable
+            <Button variant="primary" onClick={verifyEnroll} disabled={!mfaCode || mfaCode.length < 6 || verifying}>
+              {verifying ? 'Verifying...' : 'Verify & Enable'}
             </Button>
           </ModalFooter>
         </Modal>
