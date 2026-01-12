@@ -15,7 +15,8 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("complainant", sa.Column("date_of_birth", sa.Date(), nullable=True))
+    # Make idempotent: some environments may already have this column.
+    op.execute("ALTER TABLE complainant ADD COLUMN IF NOT EXISTS date_of_birth DATE;")
 
 
 def downgrade():

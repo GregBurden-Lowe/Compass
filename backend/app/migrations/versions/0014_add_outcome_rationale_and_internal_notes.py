@@ -15,12 +15,11 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("outcome", sa.Column("rationale", sa.String(length=2000), nullable=True))
-    op.add_column(
-        "communication",
-        sa.Column("is_internal", sa.Boolean(), nullable=False, server_default=sa.false()),
-    )
-    op.alter_column("communication", "is_internal", server_default=None)
+    # Make idempotent: some environments may already have these columns.
+    op.execute("ALTER TABLE outcome ADD COLUMN IF NOT EXISTS rationale VARCHAR(2000);")
+    op.execute("ALTER TABLE communication ADD COLUMN IF NOT EXISTS is_internal BOOLEAN NOT NULL DEFAULT false;")
+    # Remove default after backfill to keep model semantics consistent
+    op.execute("ALTER TABLE communication ALTER COLUMN is_internal DROP DEFAULT;")
 
 
 def downgrade():
