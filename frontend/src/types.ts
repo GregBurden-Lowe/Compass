@@ -9,6 +9,7 @@ export interface User {
   mfa_enabled: boolean
   must_change_password?: boolean
   created_at: string
+  last_login?: string
 }
 
 export interface LoginResponse {
