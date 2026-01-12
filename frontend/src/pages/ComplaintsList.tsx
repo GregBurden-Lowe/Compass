@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { api } from '../api/client'
 import { Complaint, User } from '../types'
@@ -12,6 +13,7 @@ type SortDirection = 'asc' | 'desc'
 
 export default function ComplaintsList() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -26,6 +28,24 @@ export default function ComplaintsList() {
   const [pageSize] = useState(50)
   const [totalPages, setTotalPages] = useState(1)
   const [handlers, setHandlers] = useState<User[]>([])
+
+  // Read initial filters from URL query params (for deep-links from Dashboard, etc.)
+  useEffect(() => {
+    const overdue = searchParams.get('overdue')
+    const vulnerability = searchParams.get('vulnerability')
+    const status = searchParams.get('status')
+    const handler = searchParams.get('handler')
+    const q = searchParams.get('search')
+
+    if (overdue !== null) setOverdueFilter(overdue === 'true')
+    if (vulnerability !== null) setVulnerableFilter(vulnerability === 'true')
+    if (status) setStatusFilter(status)
+    if (handler) setHandlerFilter(handler)
+    if (q) setSearch(q)
+    // reset to first page when arriving via deep-link
+    setPage(1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const loadComplaints = async () => {
     setLoading(true)

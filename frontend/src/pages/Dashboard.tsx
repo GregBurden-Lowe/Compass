@@ -146,13 +146,17 @@ export default function Dashboard() {
         )}
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="rounded-card border border-border bg-app p-6">
+          <button
+            type="button"
+            onClick={() => navigate('/complaints')}
+            className="rounded-card border border-border bg-app p-6 text-left hover:bg-surface transition"
+          >
             <div className="text-sm font-semibold text-text-primary">Open Cases</div>
             <div className="mt-3 text-3xl font-semibold text-text-primary">
               {loadingMetrics ? '—' : metrics?.kpis.open || 0}
             </div>
             <div className="mt-2 text-xs text-text-secondary">Total open complaints</div>
-          </div>
+          </button>
 
           <div className="rounded-card border border-border bg-app p-6">
             <div className="text-sm font-semibold text-text-primary">My Open</div>
@@ -172,13 +176,17 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="rounded-card border border-border bg-app p-6">
+          <button
+            type="button"
+            onClick={() => navigate('/complaints?overdue=true')}
+            className="rounded-card border border-border bg-app p-6 text-left hover:bg-surface transition"
+          >
             <div className="text-sm font-semibold text-text-primary">SLA Breaches</div>
             <div className="mt-3 text-3xl font-semibold text-semantic-error">
               {loadingMetrics ? '—' : metrics?.kpis.open_sla_breaches || 0}
             </div>
             <div className="mt-2 text-xs text-text-secondary">Open breaches</div>
-          </div>
+          </button>
 
           <div className="rounded-card border border-border bg-app p-6">
             <div className="text-sm font-semibold text-text-primary">Stale (21d+)</div>
@@ -287,6 +295,15 @@ export default function Dashboard() {
                 <div className="mt-1 text-xs text-text-muted">
                   {formatPercent(metrics.risk.open_vulnerable.pct_of_open)} of open
                 </div>
+              )}
+              {!loadingMetrics && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/complaints?vulnerability=true')}
+                  className="mt-2 text-xs font-medium text-brand hover:text-brand-dark"
+                >
+                  View cases →
+                </button>
               )}
             </CardBody>
           </Card>

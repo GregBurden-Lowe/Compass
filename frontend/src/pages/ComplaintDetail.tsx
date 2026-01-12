@@ -41,6 +41,7 @@ export default function ComplaintDetail() {
     occurred_at: dayjs().format('YYYY-MM-DDTHH:mm'),
     is_final_response: false,
   })
+  const [showFinalResponseConfirm, setShowFinalResponseConfirm] = useState(false)
   const [commFiles, setCommFiles] = useState<FileList | null>(null)
   const [addingComm, setAddingComm] = useState(false)
   const [commError, setCommError] = useState<string | null>(null)
@@ -163,8 +164,19 @@ export default function ComplaintDetail() {
     }
   }
 
-  const handleAddCommunication = async () => {
+  const handleAddCommunication = async (opts?: { allowFinalWithoutAttachment?: boolean }) => {
     if (!id || !commForm.summary) return
+
+    // Guardrail: final response should generally have evidence (written response).
+    // To avoid breaking workflows, we show a confirm modal instead of hard-blocking.
+    if (
+      commForm.is_final_response &&
+      (!commFiles || commFiles.length === 0) &&
+      !opts?.allowFinalWithoutAttachment
+    ) {
+      setShowFinalResponseConfirm(true)
+      return
+    }
 
     setAddingComm(true)
     setCommError(null)
@@ -216,6 +228,12 @@ export default function ComplaintDetail() {
     }
   }
 
+  const handleConfirmFinalResponseWithoutAttachment = async () => {
+    setShowFinalResponseConfirm(false)
+    // proceed with normal submission without attachments
+    await handleAddCommunication({ allowFinalWithoutAttachment: true })
+  }
+
   if (loading) {
     return (
       <>
@@ -263,10 +281,19 @@ export default function ComplaintDetail() {
 
     setSavingOutcome(true)
     setOutcomeError(null)
+    const trimmedNotes = (outcomeForm.notes || '').trim()
+
+    // Guardrail: require rationale for key decision outcomes
+    const outcomesRequiringNotes = new Set(['upheld', 'partially_upheld', 'not_upheld', 'out_of_scope'])
+    if (outcomesRequiringNotes.has(outcomeForm.outcome) && trimmedNotes.length < 10) {
+      setSavingOutcome(false)
+      setOutcomeError('Please add a short rationale (at least 10 characters) for this outcome.')
+      return
+    }
     try {
       await api.post(`/complaints/${id}/outcome`, {
         outcome: outcomeForm.outcome,
-        notes: outcomeForm.notes || null,
+        notes: trimmedNotes || null,
       })
       setShowOutcomeModal(false)
       loadComplaint()
@@ -282,12 +309,37 @@ export default function ComplaintDetail() {
 
     setSavingRedress(true)
     setRedressError(null)
+    const amountStr = (redressForm.amount || '').trim()
+    const amount = amountStr ? Number(amountStr) : null
+    const rationale = (redressForm.rationale || '').trim()
+
+    if (amountStr && (Number.isNaN(amount) || amount === null)) {
+      setSavingRedress(false)
+      setRedressError('Please enter a valid amount.')
+      return
+    }
+    if (amount !== null && amount < 0) {
+      setSavingRedress(false)
+      setRedressError('Amount cannot be negative.')
+      return
+    }
+    if (amount !== null && !/^\d+(\.\d{1,2})?$/.test(amountStr)) {
+      setSavingRedress(false)
+      setRedressError('Amount must have at most 2 decimal places.')
+      return
+    }
+    // Guardrail: monetary redress should include a rationale
+    if (amount !== null && amount > 0 && rationale.length < 10) {
+      setSavingRedress(false)
+      setRedressError('Please add a short rationale (at least 10 characters) for monetary redress.')
+      return
+    }
     try {
       await api.post(`/complaints/${id}/redress`, {
         payment_type: redressForm.payment_type,
-        amount: redressForm.amount ? parseFloat(redressForm.amount) : null,
+        amount: amount !== null ? amount : null,
         status: redressForm.status,
-        rationale: redressForm.rationale || null,
+        rationale: rationale || null,
         action_description: redressForm.action_description || null,
         action_status: redressForm.action_status,
         notes: redressForm.notes || null,
@@ -1492,6 +1544,11 @@ export default function ComplaintDetail() {
               />
               <span className="text-sm font-medium text-text-primary">Mark as Final Response</span>
             </label>
+            {commForm.is_final_response && (
+              <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/5 p-3 text-sm text-semantic-warning">
+                Final responses should normally have evidence attached (e.g., final response letter/email).
+              </div>
+            )}
           </div>
         </ModalBody>
         <ModalFooter>
@@ -1500,10 +1557,36 @@ export default function ComplaintDetail() {
           </Button>
           <Button
             variant="primary"
-            onClick={handleAddCommunication}
+            onClick={() => handleAddCommunication()}
             disabled={!commForm.summary || addingComm}
           >
             {addingComm ? 'Adding...' : 'Add Communication'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Final response confirmation (no attachment) */}
+      <Modal open={showFinalResponseConfirm} onClose={() => setShowFinalResponseConfirm(false)}>
+        <ModalHeader onClose={() => setShowFinalResponseConfirm(false)}>Final Response without attachment?</ModalHeader>
+        <ModalBody>
+          <div className="space-y-3">
+            <p className="text-sm text-text-secondary">
+              You marked this communication as a <strong className="text-text-primary">Final Response</strong>, but no attachment was added.
+            </p>
+            <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/5 p-3 text-sm text-semantic-warning">
+              For auditability, attach the final response letter/email where possible.
+            </div>
+            <p className="text-sm text-text-secondary">
+              You can continue without an attachment if the evidence is stored elsewhere, but this may increase operational risk.
+            </p>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowFinalResponseConfirm(false)} disabled={addingComm}>
+            Go back
+          </Button>
+          <Button variant="primary" onClick={handleConfirmFinalResponseWithoutAttachment} disabled={addingComm}>
+            Continue anyway
           </Button>
         </ModalFooter>
       </Modal>
