@@ -8,6 +8,13 @@ if [ -z "${DATABASE_URL}" ]; then
     exit 1
 fi
 
+# In production, SECRET_KEY must be stable across workers/restarts.
+# If unset, the app will generate a random key per process, which breaks JWT auth when using multiple workers.
+if [ "${ENVIRONMENT}" = "production" ] && [ -z "${SECRET_KEY}" ]; then
+    echo "ERROR: SECRET_KEY is not set. Set SECRET_KEY in your .env (required in production to keep auth stable)."
+    exit 1
+fi
+
 echo "Running migrations..."
 alembic upgrade head
 
