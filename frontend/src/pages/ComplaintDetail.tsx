@@ -688,12 +688,14 @@ export default function ComplaintDetail() {
                             </span>
                             <span
                               className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
-                                comm.direction === 'Inbound'
+                                String(comm.direction).toLowerCase() === 'inbound'
                                   ? 'bg-semantic-info/10 text-semantic-info'
                                   : 'bg-semantic-success/10 text-semantic-success'
                               }`}
                             >
-                              {comm.direction}
+                              {String(comm.direction)
+                                .replace(/_/g, ' ')
+                                .replace(/^\w/, (c) => c.toUpperCase())}
                             </span>
                             {comm.is_final_response && (
                               <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-warning/10 text-semantic-warning border border-semantic-warning/20">

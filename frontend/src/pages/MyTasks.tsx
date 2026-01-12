@@ -179,11 +179,12 @@ export default function MyTasks() {
   const handleQuickAcknowledge = async (complaintId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     try {
+      setError(null)
       await api.post(`/complaints/${complaintId}/acknowledge`)
       loadTasks() // Reload tasks
     } catch (err) {
       console.error('Failed to acknowledge', err)
-      alert('Failed to acknowledge complaint')
+      setError('Failed to acknowledge complaint. Please try again.')
     }
   }
 
