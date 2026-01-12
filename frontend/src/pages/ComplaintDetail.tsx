@@ -628,6 +628,78 @@ export default function ComplaintDetail() {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
+                  <CardTitle>Status</CardTitle>
+                </CardHeader>
+                <CardBody>
+                  <div className="mt-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="block text-xs font-medium text-text-primary mb-1">Case State</label>
+                        <p className="text-sm font-semibold text-text-primary">
+                          {complaint.status === 'Closed' ? 'Closed' : 'Open'}
+                        </p>
+                      </div>
+                      <StatusChip status={complaint.status} />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-text-primary mb-1">Workflow Status</label>
+                      <p className="text-sm text-text-primary">{complaint.status}</p>
+                    </div>
+
+                    <div className="pt-2 border-t border-border space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-text-secondary">Ack due</span>
+                        <span className={`text-xs font-medium ${complaint.ack_breached ? 'text-semantic-error' : 'text-text-primary'}`}>
+                          {complaint.ack_due_at ? dayjs(complaint.ack_due_at).format('MMM D, YYYY') : '—'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-text-secondary">Final due</span>
+                        <span className={`text-xs font-medium ${complaint.final_breached ? 'text-semantic-error' : 'text-text-primary'}`}>
+                          {complaint.final_due_at ? dayjs(complaint.final_due_at).format('MMM D, YYYY') : '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+                      {complaint.ack_breached && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-error/10 text-semantic-error border border-semantic-error/20">
+                          ⚠️ Ack breached
+                        </span>
+                      )}
+                      {complaint.final_breached && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-error/10 text-semantic-error border border-semantic-error/20">
+                          ⚠️ Final breached
+                        </span>
+                      )}
+                      {complaint.is_escalated && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-warning/10 text-semantic-warning border border-semantic-warning/20">
+                          ⬆️ Escalated
+                        </span>
+                      )}
+                      {complaint.fos_complaint && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-info/10 text-semantic-info border border-semantic-info/20">
+                          🏛️ FOS referred
+                        </span>
+                      )}
+                      {complaint.non_reportable && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-app text-text-muted border border-border">
+                          🚫 Non-reportable
+                        </span>
+                      )}
+                      {complaint.vulnerability_flag && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-warning/10 text-semantic-warning border border-semantic-warning/20">
+                          🛡️ Vulnerable
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle>Timeline</CardTitle>
                 </CardHeader>
                 <CardBody>
