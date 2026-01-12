@@ -331,8 +331,9 @@ export default function AdminUsers() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Role *</label>
+              <label htmlFor="create-role" className="block text-xs font-medium text-text-primary">Role *</label>
               <select
+                id="create-role"
                 className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
@@ -346,8 +347,9 @@ export default function AdminUsers() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Initial Password *</label>
+              <label htmlFor="create-password" className="block text-xs font-medium text-text-primary">Initial Password *</label>
               <Input
+                id="create-password"
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -406,8 +408,9 @@ export default function AdminUsers() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Role *</label>
+              <label htmlFor="edit-role" className="block text-xs font-medium text-text-primary">Role *</label>
               <select
+                id="edit-role"
                 className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
@@ -421,8 +424,9 @@ export default function AdminUsers() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">New Password</label>
+              <label htmlFor="edit-password" className="block text-xs font-medium text-text-primary">New Password</label>
               <Input
+                id="edit-password"
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
