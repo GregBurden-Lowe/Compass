@@ -59,7 +59,7 @@ export default function CreateComplaintWizard() {
 
   // Track changes for unsaved warning
   useEffect(() => {
-    const hasData = formData.complainant_name || formData.description || formData.category
+    const hasData = !!(formData.complainant_name || formData.description || formData.category)
     setHasUnsavedChanges(hasData)
   }, [formData])
 
