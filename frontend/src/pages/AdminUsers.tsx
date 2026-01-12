@@ -18,6 +18,8 @@ export default function AdminUsers() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [mfaLoading, setMfaLoading] = useState(false)
+  const [showResetMfaModal, setShowResetMfaModal] = useState(false)
+  const [resetMfaUser, setResetMfaUser] = useState<User | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -133,7 +135,6 @@ export default function AdminUsers() {
   }
 
   const handleResetMfa = async (user: User) => {
-    if (!window.confirm(`Reset MFA for ${user.full_name}? This will disable MFA and require re-enrollment.`)) return
     setMfaLoading(true)
     setError(null)
     try {
@@ -144,6 +145,11 @@ export default function AdminUsers() {
     } finally {
       setMfaLoading(false)
     }
+  }
+
+  const openResetMfaModal = (user: User) => {
+    setResetMfaUser(user)
+    setShowResetMfaModal(true)
   }
 
   const handleRegenerateRecovery = async (user: User) => {
@@ -270,7 +276,7 @@ export default function AdminUsers() {
                             Reset Password
                           </button>
                           <button
-                            onClick={() => handleResetMfa(user)}
+                            onClick={() => openResetMfaModal(user)}
                             className="text-semantic-error hover:opacity-80 text-sm font-medium disabled:opacity-50"
                             disabled={mfaLoading}
                           >
@@ -490,6 +496,37 @@ export default function AdminUsers() {
         <ModalFooter>
           <Button variant="primary" onClick={() => setShowRecoveryModal(false)}>
             Close
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Reset MFA Confirm Modal */}
+      <Modal open={showResetMfaModal} onClose={() => setShowResetMfaModal(false)}>
+        <ModalHeader onClose={() => setShowResetMfaModal(false)}>Reset MFA</ModalHeader>
+        <ModalBody>
+          <div className="space-y-3">
+            <p className="text-sm text-text-secondary">
+              Resetting MFA will disable MFA for this user and require re-enrollment.
+            </p>
+            <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/5 p-3 text-sm text-semantic-warning">
+              User: <strong className="text-text-primary">{resetMfaUser?.full_name}</strong>
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowResetMfaModal(false)} disabled={mfaLoading}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={async () => {
+              if (!resetMfaUser) return
+              setShowResetMfaModal(false)
+              await handleResetMfa(resetMfaUser)
+            }}
+            disabled={!resetMfaUser || mfaLoading}
+          >
+            {mfaLoading ? 'Resetting...' : 'Confirm Reset'}
           </Button>
         </ModalFooter>
       </Modal>

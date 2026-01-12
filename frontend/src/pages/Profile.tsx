@@ -29,6 +29,9 @@ export default function Profile() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null)
   const [mfaLoading, setMfaLoading] = useState(false)
   const [mfaMessage, setMfaMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Confirm modal (replace browser confirm())
+  const [confirmAction, setConfirmAction] = useState<null | 'disable_mfa' | 'regen_recovery'>(null)
   
   // Load MFA status
   useEffect(() => {
@@ -118,8 +121,6 @@ export default function Profile() {
   }
 
   const disableMfa = async () => {
-    if (!confirm('Are you sure you want to disable MFA? This will make your account less secure.')) return
-    
     setMfaLoading(true)
     setMfaMessage(null)
     try {
@@ -134,8 +135,6 @@ export default function Profile() {
   }
 
   const regenerateRecoveryCodes = async () => {
-    if (!confirm('This will invalidate your existing recovery codes. Continue?')) return
-    
     setMfaLoading(true)
     setMfaMessage(null)
     try {
@@ -291,10 +290,10 @@ export default function Profile() {
                   </Button>
                 ) : (
                   <>
-                    <Button variant="secondary" onClick={regenerateRecoveryCodes} disabled={mfaLoading}>
+                    <Button variant="secondary" onClick={() => setConfirmAction('regen_recovery')} disabled={mfaLoading}>
                       {mfaLoading ? 'Regenerating...' : 'Regenerate Recovery Codes'}
                     </Button>
-                    <Button variant="secondary" onClick={disableMfa} disabled={mfaLoading}>
+                    <Button variant="secondary" onClick={() => setConfirmAction('disable_mfa')} disabled={mfaLoading}>
                       {mfaLoading ? 'Disabling...' : 'Disable MFA'}
                     </Button>
                   </>
@@ -548,6 +547,51 @@ export default function Profile() {
                 Done
               </Button>
             )}
+          </ModalFooter>
+        </Modal>
+
+        {/* Confirm modal (MFA actions) */}
+        <Modal open={confirmAction !== null} onClose={() => setConfirmAction(null)}>
+          <ModalHeader onClose={() => setConfirmAction(null)}>
+            {confirmAction === 'disable_mfa' ? 'Disable MFA' : 'Regenerate Recovery Codes'}
+          </ModalHeader>
+          <ModalBody>
+            {confirmAction === 'disable_mfa' ? (
+              <div className="space-y-3">
+                <p className="text-sm text-text-secondary">
+                  Disabling MFA will make your account less secure. You will be able to re-enable MFA later.
+                </p>
+                <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/5 p-3 text-sm text-semantic-warning">
+                  This action reduces account security.
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-text-secondary">
+                  Regenerating recovery codes will invalidate your existing recovery codes.
+                </p>
+                <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/5 p-3 text-sm text-semantic-warning">
+                  Any previously issued recovery codes will stop working.
+                </div>
+              </div>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="secondary" onClick={() => setConfirmAction(null)} disabled={mfaLoading}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={async () => {
+                const action = confirmAction
+                setConfirmAction(null)
+                if (action === 'disable_mfa') await disableMfa()
+                if (action === 'regen_recovery') await regenerateRecoveryCodes()
+              }}
+              disabled={mfaLoading}
+            >
+              Confirm
+            </Button>
           </ModalFooter>
         </Modal>
       </div>

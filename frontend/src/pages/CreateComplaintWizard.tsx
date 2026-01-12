@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { api } from '../api/client'
 import { TopBar } from '../components/layout'
-import { Button, Input, Card, CardHeader, CardTitle, CardBody, Combobox } from '../components/ui'
+import { Button, Input, Card, CardHeader, CardTitle, CardBody, Combobox, Modal, ModalHeader, ModalBody, ModalFooter } from '../components/ui'
 import type { ReferenceItem } from '../types'
 
 export default function CreateComplaintWizard() {
@@ -12,6 +12,7 @@ export default function CreateComplaintWizard() {
   const [error, setError] = useState<string | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [showCancelModal, setShowCancelModal] = useState(false)
 
   // Reference data
   const [products, setProducts] = useState<string[]>([])
@@ -105,9 +106,8 @@ export default function CreateComplaintWizard() {
 
   const handleCancel = () => {
     if (hasUnsavedChanges) {
-      if (!confirm('You have unsaved changes. Are you sure you want to cancel?')) {
-        return
-      }
+      setShowCancelModal(true)
+      return
     }
     navigate('/complaints')
   }
@@ -602,6 +602,35 @@ export default function CreateComplaintWizard() {
           </div>
         </form>
       </div>
+
+      {/* Cancel confirm modal (replaces confirm()) */}
+      <Modal open={showCancelModal} onClose={() => setShowCancelModal(false)}>
+        <ModalHeader onClose={() => setShowCancelModal(false)}>Discard changes?</ModalHeader>
+        <ModalBody>
+          <div className="space-y-3">
+            <p className="text-sm text-text-secondary">
+              You have unsaved changes. If you leave now, they will be lost.
+            </p>
+            <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/5 p-3 text-sm text-semantic-warning">
+              This complaint has not been created yet.
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowCancelModal(false)}>
+            Stay here
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setShowCancelModal(false)
+              navigate('/complaints')
+            }}
+          >
+            Discard & Exit
+          </Button>
+        </ModalFooter>
+      </Modal>
     </>
   )
 }
