@@ -62,7 +62,7 @@ export default function MyTasks() {
       )
 
       const inInvestigation = myComplaints.filter(
-        (c) => c.status === 'Investigating' || c.status === 'Acknowledged'
+        (c) => c.status === 'In Investigation' || c.status === 'Acknowledged'
       )
 
       const finalResponsesDue = myComplaints.filter(
@@ -76,7 +76,7 @@ export default function MyTasks() {
       const finalResponsesOverdue = myComplaints.filter(
         (c) =>
           (c.status === 'Response Drafted' ||
-            c.status === 'Investigating' ||
+            c.status === 'In Investigation' ||
             c.status === 'Acknowledged') &&
           !c.final_response_at &&
           c.final_due_at &&
