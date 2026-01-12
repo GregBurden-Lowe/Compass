@@ -32,11 +32,18 @@ export default function ComplaintsList() {
     setError(null)
     try {
       const params: any = { page, page_size: pageSize, _: Date.now() }
-      if (handlerFilter !== 'all') params.handler_id = handlerFilter
+      // Backend expects: status_filter, handler_id, vulnerability, overdue, search, date_from/date_to
+      if (statusFilter !== 'all') params.status_filter = statusFilter
+      if (handlerFilter !== 'all' && handlerFilter !== 'unassigned') params.handler_id = handlerFilter
       if (overdueFilter) params.overdue = true
+      if (vulnerableFilter) params.vulnerability = true
+      if (search.trim()) params.search = search.trim()
       
       const res = await api.get<Complaint[]>('/complaints', { params })
-      setComplaints(res.data || [])
+      // NOTE: backend does not currently support an explicit "unassigned" filter.
+      // Workaround: filter unassigned in the returned page results.
+      const items = res.data || []
+      setComplaints(handlerFilter === 'unassigned' ? items.filter((c) => !c.assigned_handler_id) : items)
       
       // Calculate total pages (rough estimate since we don't have total count from API)
       if (res.data && res.data.length === pageSize) {
@@ -67,7 +74,7 @@ export default function ComplaintsList() {
 
   useEffect(() => {
     loadComplaints()
-  }, [page, handlerFilter, overdueFilter])
+  }, [page, handlerFilter, overdueFilter, statusFilter, vulnerableFilter])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -97,24 +104,7 @@ export default function ComplaintsList() {
     )
   }
 
-  const filteredComplaints = complaints
-    .filter((c) => {
-      // Search filter
-      const searchLower = search.toLowerCase()
-      const matchesSearch = !search || 
-        c.reference.toLowerCase().includes(searchLower) ||
-        c.description?.toLowerCase().includes(searchLower) ||
-        c.complainant?.full_name?.toLowerCase().includes(searchLower)
-      
-      // Status filter
-      const matchesStatus = statusFilter === 'all' || c.status === statusFilter
-      
-      // Vulnerable filter
-      const matchesVulnerable = !vulnerableFilter || c.vulnerability_flag
-      
-      return matchesSearch && matchesStatus && matchesVulnerable
-    })
-    .sort((a, b) => {
+  const filteredComplaints = complaints.sort((a, b) => {
       let aVal: any, bVal: any
       
       switch (sortField) {
@@ -220,12 +210,22 @@ export default function ComplaintsList() {
                   placeholder="Search by reference, description, or complainant..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      setPage(1)
+                      loadComplaints()
+                    }
+                  }}
                   leadingIcon={
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   }
                 />
+                <p className="mt-1 text-xs text-text-muted">
+                  Tip: Press Enter or click Refresh to run a new search (server-side).
+                </p>
               </div>
 
               {/* Status Filter */}
@@ -240,11 +240,10 @@ export default function ComplaintsList() {
                   <option value="all">All Statuses</option>
                   <option value="New">New</option>
                   <option value="Acknowledged">Acknowledged</option>
-                  <option value="Investigating">Investigating</option>
+                  <option value="In Investigation">In Investigation</option>
                   <option value="Response Drafted">Response Drafted</option>
                   <option value="Final Response Issued">Final Response Issued</option>
                   <option value="Closed">Closed</option>
-                  <option value="Escalated">Escalated</option>
                 </select>
               </div>
 
