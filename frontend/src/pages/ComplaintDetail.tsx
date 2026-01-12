@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { api } from '../api/client'
-import { Complaint, Communication, User, ComplaintEvent } from '../types'
+import { Complaint, Communication, User, ComplaintEvent, ReferenceItem } from '../types'
 import { TopBar } from '../components/layout'
-import { Button, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, ModalBody, ModalFooter, Input } from '../components/ui'
+import { Button, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, ModalBody, ModalFooter, Input, Combobox } from '../components/ui'
 import { StatusChip } from '../components/StatusChip'
 import { useAuth } from '../context/AuthContext'
 
@@ -54,6 +54,11 @@ export default function ComplaintDetail() {
     complainant_address: '',
     complainant_dob: '',
   })
+
+  // Reference data (for edit modal comboboxes)
+  const [products, setProducts] = useState<string[]>([])
+  const [insurers, setInsurers] = useState<string[]>([])
+  const [brokers, setBrokers] = useState<string[]>([])
   
   // Assignment state
   const [showAssignModal, setShowAssignModal] = useState(false)
@@ -128,7 +133,24 @@ export default function ComplaintDetail() {
     if (!id) return
     loadComplaint()
     loadUsers()
+    loadReferenceData()
   }, [id])
+
+  const loadReferenceData = () => {
+    Promise.all([
+      api.get<ReferenceItem[]>('/reference/products'),
+      api.get<ReferenceItem[]>('/reference/insurers'),
+      api.get<ReferenceItem[]>('/reference/brokers'),
+    ])
+      .then(([productsRes, insurersRes, brokersRes]) => {
+        setProducts(productsRes.data.map((item) => item.name))
+        setInsurers(insurersRes.data.map((item) => item.name))
+        setBrokers(brokersRes.data.map((item) => item.name))
+      })
+      .catch((err) => {
+        console.error('Failed to load reference data', err)
+      })
+  }
 
   const loadEvents = () => {
     if (!id) return
@@ -2156,26 +2178,29 @@ export default function ComplaintDetail() {
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-text-primary">Product</label>
-                  <Input
+                  <Combobox
                     value={editForm.product}
-                    onChange={(e) => setEditForm({ ...editForm, product: e.target.value })}
-                    placeholder="Product…"
+                    onChange={(value) => setEditForm({ ...editForm, product: value })}
+                    options={products}
+                    placeholder="Select or type product..."
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-text-primary">Insurer</label>
-                  <Input
+                  <Combobox
                     value={editForm.insurer}
-                    onChange={(e) => setEditForm({ ...editForm, insurer: e.target.value })}
-                    placeholder="Insurer…"
+                    onChange={(value) => setEditForm({ ...editForm, insurer: value })}
+                    options={insurers}
+                    placeholder="Select or type insurer..."
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-text-primary">Broker</label>
-                  <Input
+                  <Combobox
                     value={editForm.broker}
-                    onChange={(e) => setEditForm({ ...editForm, broker: e.target.value })}
-                    placeholder="Broker…"
+                    onChange={(value) => setEditForm({ ...editForm, broker: value })}
+                    options={brokers}
+                    placeholder="Select or type broker..."
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
