@@ -42,6 +42,27 @@ def run_migrations_online():
     )
 
     with connectable.connect() as connection:
+        # Safety: older DBs may have alembic_version.version_num as VARCHAR(32),
+        # which is too short for our revision IDs like "0012_add_comprehensive_reporting_view".
+        # If it's too short, widen it before running migrations.
+        try:
+            row = connection.exec_driver_sql(
+                """
+                SELECT character_maximum_length
+                FROM information_schema.columns
+                WHERE table_name = 'alembic_version'
+                  AND column_name = 'version_num'
+                """
+            ).fetchone()
+            max_len = row[0] if row else None
+            if max_len is not None and max_len < 64:
+                connection.exec_driver_sql(
+                    "ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)"
+                )
+        except Exception:
+            # Don't block migrations if the check fails (e.g., permissions/DB differences).
+            pass
+
         context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
