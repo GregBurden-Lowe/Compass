@@ -230,8 +230,9 @@ export default function ComplaintsList() {
 
               {/* Status Filter */}
               <div>
-                <label className="block text-xs font-medium text-text-primary mb-1">Status</label>
+                <label htmlFor="status-filter" className="block text-xs font-medium text-text-primary mb-1">Status</label>
                 <select
+                  id="status-filter"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand"
@@ -249,8 +250,9 @@ export default function ComplaintsList() {
 
               {/* Handler Filter */}
               <div>
-                <label className="block text-xs font-medium text-text-primary mb-1">Handler</label>
+                <label htmlFor="handler-filter" className="block text-xs font-medium text-text-primary mb-1">Handler</label>
                 <select
+                  id="handler-filter"
                   value={handlerFilter}
                   onChange={(e) => setHandlerFilter(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand"
