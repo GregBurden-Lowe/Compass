@@ -9,6 +9,7 @@ import { StatusChip } from '../components/StatusChip'
 import { useAuth } from '../context/AuthContext'
 
 type Tab = 'overview' | 'communications' | 'outcome' | 'history'
+type CloseAction = 'close' | 'close-non-reportable'
 
 export default function ComplaintDetail() {
   const { id } = useParams<{ id: string }>()
@@ -62,6 +63,11 @@ export default function ComplaintDetail() {
   })
   const [savingRedress, setSavingRedress] = useState(false)
   const [redressError, setRedressError] = useState<string | null>(null)
+  // Close modal
+  const [showCloseModal, setShowCloseModal] = useState(false)
+  const [closeAction, setCloseAction] = useState<CloseAction | null>(null)
+  const [closeDate, setCloseDate] = useState(dayjs().format('YYYY-MM-DDTHH:mm'))
+  const [closing, setClosing] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -306,6 +312,28 @@ export default function ComplaintDetail() {
     }
     setOutcomeError(null)
     setShowOutcomeModal(true)
+  }
+
+  const openCloseModal = (action: CloseAction) => {
+    setCloseAction(action)
+    setCloseDate(dayjs().format('YYYY-MM-DDTHH:mm'))
+    setShowCloseModal(true)
+  }
+
+  const handleSubmitClose = async () => {
+    if (!id || !closeAction) return
+    setClosing(true)
+    try {
+      await api.post(`/complaints/${id}/${closeAction}`, {
+        closed_at: closeDate ? dayjs(closeDate).toISOString() : null,
+      })
+      setShowCloseModal(false)
+      loadComplaint()
+    } catch (err) {
+      console.error('Failed to close complaint', err)
+    } finally {
+      setClosing(false)
+    }
   }
 
   return (
@@ -823,14 +851,14 @@ export default function ComplaintDetail() {
                     {complaint.final_response_at && (
                       <Button
                         variant="primary"
-                        onClick={() => handleStatusChange('close', 'Complaint closed')}
+                        onClick={() => openCloseModal('close')}
                       >
                         🔒 Close Complaint
                       </Button>
                     )}
                     <Button
                       variant="secondary"
-                      onClick={() => handleStatusChange('close-non-reportable', 'Closed as non-reportable')}
+                      onClick={() => openCloseModal('close-non-reportable')}
                     >
                       🚫 Close as Non-Reportable
                     </Button>
@@ -977,6 +1005,37 @@ export default function ComplaintDetail() {
             disabled={!selectedUserId || assigning}
           >
             {assigning ? 'Assigning...' : 'Assign'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Close Complaint Modal */}
+      <Modal open={showCloseModal} onClose={() => setShowCloseModal(false)}>
+        <ModalHeader onClose={() => setShowCloseModal(false)}>Confirm Closure</ModalHeader>
+        <ModalBody>
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">
+              Please confirm the closure date for this complaint.
+            </p>
+            <div className="space-y-2">
+              <label htmlFor="close-date" className="block text-xs font-medium text-text-primary">
+                Closure Date & Time *
+              </label>
+              <Input
+                id="close-date"
+                type="datetime-local"
+                value={closeDate}
+                onChange={(e) => setCloseDate(e.target.value)}
+              />
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowCloseModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSubmitClose} disabled={closing || !closeDate}>
+            {closing ? 'Closing...' : 'Confirm Closure'}
           </Button>
         </ModalFooter>
       </Modal>
