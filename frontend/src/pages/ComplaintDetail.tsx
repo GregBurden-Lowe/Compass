@@ -20,6 +20,7 @@ export default function ComplaintDetail() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [users, setUsers] = useState<User[]>([])
+  const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   
   // Assignment state
   const [showAssignModal, setShowAssignModal] = useState(false)
@@ -243,10 +244,13 @@ export default function ComplaintDetail() {
 
     try {
       await api.post(`/complaints/${id}/${endpoint}`)
-      alert(successMessage)
+      setUiMessage({ type: 'success', text: successMessage })
       loadComplaint()
     } catch (err: any) {
-      alert(err?.response?.data?.detail || `Failed to ${successMessage.toLowerCase()}`)
+      setUiMessage({
+        type: 'error',
+        text: err?.response?.data?.detail || `Failed to ${successMessage.toLowerCase()}`,
+      })
     }
   }
 
@@ -388,6 +392,25 @@ export default function ComplaintDetail() {
       />
 
       <div className="px-10 py-6">
+        {/* Non-blocking feedback banner (replaces alert()) */}
+        {uiMessage && (
+          <div
+            className={`mb-6 rounded-lg border p-4 flex items-start justify-between gap-4 ${
+              uiMessage.type === 'success'
+                ? 'border-semantic-success/30 bg-semantic-success/5 text-semantic-success'
+                : 'border-semantic-error/30 bg-semantic-error/5 text-semantic-error'
+            }`}
+          >
+            <div className="text-sm">{uiMessage.text}</div>
+            <button
+              onClick={() => setUiMessage(null)}
+              className="text-sm font-medium underline underline-offset-2"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="border-b border-border mb-6">
           <div className="flex gap-1">
