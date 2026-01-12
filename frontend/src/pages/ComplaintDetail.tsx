@@ -464,7 +464,7 @@ export default function ComplaintDetail() {
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => handleStatusChange('close-non-reportable', 'Closed as non-reportable')}
+                          onClick={() => openCloseModal('close-non-reportable')}
                         >
                           🚫 Close as Non-Reportable
                         </Button>
