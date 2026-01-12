@@ -1002,9 +1002,11 @@ export default function ComplaintDetail() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Outcome</CardTitle>
+                  <div className="flex items-center gap-3">
+                    <CardTitle>Outcome</CardTitle>
+                  </div>
                   {user?.role !== 'read_only' && (
-                    <Button variant="primary" size="sm" onClick={openOutcomeModal}>
+                    <Button variant="primary" size="sm" onClick={openOutcomeModal} className="ml-3">
                       {complaint.outcome ? 'Update Outcome' : 'Record Outcome'}
                     </Button>
                   )}
@@ -1042,9 +1044,11 @@ export default function ComplaintDetail() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Redress Payments</CardTitle>
+                  <div className="flex items-center gap-3">
+                    <CardTitle>Redress Payments</CardTitle>
+                  </div>
                   {user?.role !== 'read_only' && (
-                    <Button variant="primary" size="sm" onClick={() => setShowRedressModal(true)}>
+                    <Button variant="primary" size="sm" onClick={() => setShowRedressModal(true)} className="ml-3">
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                       </svg>
