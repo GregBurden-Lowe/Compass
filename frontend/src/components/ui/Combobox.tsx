@@ -14,10 +14,12 @@ export function Combobox({ value, onChange, options, placeholder, className = ''
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<string>(value)
 
   // Update search when value changes externally
   useEffect(() => {
     setSearch(value)
+    searchRef.current = value
   }, [value])
 
   // Filter options based on search
@@ -47,12 +49,14 @@ export function Combobox({ value, onChange, options, placeholder, className = ''
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
     setSearch(newValue)
+    searchRef.current = newValue
     setIsOpen(true)
     setHighlightedIndex(0)
   }
 
   const handleSelect = (option: string) => {
     setSearch(option)
+    searchRef.current = option
     onChange(option)
     setIsOpen(false)
     inputRef.current?.blur()
@@ -96,7 +100,7 @@ export function Combobox({ value, onChange, options, placeholder, className = ''
     setTimeout(() => {
       if (!dropdownRef.current?.contains(document.activeElement)) {
         setIsOpen(false)
-        onChange(search)
+        onChange(searchRef.current)
       }
     }, 200)
   }
@@ -122,6 +126,7 @@ export function Combobox({ value, onChange, options, placeholder, className = ''
             inputRef.current?.focus()
           }}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition"
+          aria-label={isOpen ? 'Close options' : 'Open options'}
         >
           <svg
             className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
@@ -144,6 +149,10 @@ export function Combobox({ value, onChange, options, placeholder, className = ''
             <button
               key={option}
               type="button"
+              onMouseDown={(e) => {
+                // Prevent input blur firing before option click (keeps selection from being overwritten)
+                e.preventDefault()
+              }}
               onClick={() => handleSelect(option)}
               onMouseEnter={() => setHighlightedIndex(index)}
               className={`w-full text-left px-3 py-2 text-sm transition ${
