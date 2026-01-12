@@ -247,8 +247,11 @@ export default function Dashboard() {
                     { label: '22-56 days', key: '22-56', color: 'bg-semantic-warning' },
                     { label: '56+ days', key: '56+', color: 'bg-semantic-error' },
                   ].map(({ label, key, color }) => {
-                    const count = metrics?.aging_open[key as keyof typeof metrics.aging_open] || 0
-                    const total = Object.values(metrics?.aging_open || {}).reduce((a, b) => a + b, 0)
+                    const agingData = metrics?.aging_open
+                    if (!agingData) return null
+                    
+                    const count = agingData[key as keyof typeof agingData] || 0
+                    const total = Object.values(agingData).reduce((a, b) => a + b, 0)
                     const pct = total > 0 ? (count / total) * 100 : 0
 
                     return (
@@ -258,7 +261,10 @@ export default function Dashboard() {
                           <span className="text-sm font-semibold text-text-primary">{count}</span>
                         </div>
                         <div className="w-full h-2 bg-app rounded-full overflow-hidden">
-                          <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+                          <div 
+                            className={`h-full ${color} transition-all duration-300`}
+                            style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+                          />
                         </div>
                       </div>
                     )
@@ -339,8 +345,8 @@ export default function Dashboard() {
                   </div>
                   <div className="w-full h-2 bg-app rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-semantic-success"
-                      style={{ width: `${metrics?.sla_30d.ack.on_time_pct || 0}%` }}
+                      className="h-full bg-semantic-success transition-all duration-300"
+                      style={{ width: `${Math.min(100, Math.max(0, metrics?.sla_30d.ack.on_time_pct || 0))}%` }}
                     />
                   </div>
                   <div className="mt-2 text-xs text-text-muted">
@@ -368,8 +374,8 @@ export default function Dashboard() {
                   </div>
                   <div className="w-full h-2 bg-app rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-semantic-success"
-                      style={{ width: `${metrics?.sla_30d.final.on_time_pct || 0}%` }}
+                      className="h-full bg-semantic-success transition-all duration-300"
+                      style={{ width: `${Math.min(100, Math.max(0, metrics?.sla_30d.final.on_time_pct || 0))}%` }}
                     />
                   </div>
                   <div className="mt-2 text-xs text-text-muted">
