@@ -11,10 +11,13 @@ export default function AdminUsers() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showResetModal, setShowResetModal] = useState(false)
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [mfaLoading, setMfaLoading] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -129,6 +132,35 @@ export default function AdminUsers() {
     setShowResetModal(true)
   }
 
+  const handleResetMfa = async (user: User) => {
+    if (!window.confirm(`Reset MFA for ${user.full_name}? This will disable MFA and require re-enrollment.`)) return
+    setMfaLoading(true)
+    setError(null)
+    try {
+      await api.post(`/auth/mfa/reset/${user.id}`)
+      loadUsers()
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Failed to reset MFA')
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
+  const handleRegenerateRecovery = async (user: User) => {
+    setMfaLoading(true)
+    setError(null)
+    setSelectedUser(user)
+    try {
+      const res = await api.post(`/auth/mfa/recovery/${user.id}/regenerate`)
+      setRecoveryCodes(res.data.recovery_codes || [])
+      setShowRecoveryModal(true)
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Failed to regenerate recovery codes')
+    } finally {
+      setMfaLoading(false)
+    }
+  }
+
   const resetForm = () => {
     setFormData({
       email: '',
@@ -236,6 +268,20 @@ export default function AdminUsers() {
                             className="text-semantic-warning hover:opacity-80 text-sm font-medium"
                           >
                             Reset Password
+                          </button>
+                          <button
+                            onClick={() => handleResetMfa(user)}
+                            className="text-semantic-error hover:opacity-80 text-sm font-medium disabled:opacity-50"
+                            disabled={mfaLoading}
+                          >
+                            Reset MFA
+                          </button>
+                          <button
+                            onClick={() => handleRegenerateRecovery(user)}
+                            className="text-text-secondary hover:text-text-primary text-sm font-medium disabled:opacity-50"
+                            disabled={mfaLoading}
+                          >
+                            Recovery Codes
                           </button>
                         </div>
                       </td>
@@ -401,6 +447,45 @@ export default function AdminUsers() {
           </Button>
           <Button variant="primary" onClick={handleUpdateUser} disabled={saving}>
             {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* MFA Recovery Codes Modal */}
+      <Modal open={showRecoveryModal} onClose={() => setShowRecoveryModal(false)}>
+        <ModalHeader onClose={() => setShowRecoveryModal(false)}>Recovery Codes</ModalHeader>
+        <ModalBody>
+          {error && (
+            <div className="mb-4 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              {error}
+            </div>
+          )}
+          {recoveryCodes && recoveryCodes.length > 0 ? (
+            <div className="space-y-3">
+              <p className="text-sm text-text-secondary">
+                Provide these codes to <strong className="text-text-primary">{selectedUser?.full_name}</strong>. Each code can be used once.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {recoveryCodes.map((code) => (
+                  <code
+                    key={code}
+                    className="text-sm font-mono bg-app border border-border rounded px-2 py-2 text-text-primary text-center"
+                  >
+                    {code}
+                  </code>
+                ))}
+              </div>
+              <p className="text-xs text-text-muted">
+                Users should store these codes securely. They can be used if the authenticator device is unavailable.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-text-secondary">No recovery codes generated.</p>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="primary" onClick={() => setShowRecoveryModal(false)}>
+            Close
           </Button>
         </ModalFooter>
       </Modal>
