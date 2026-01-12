@@ -30,6 +30,30 @@ export default function ComplaintDetail() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [deletingComplaint, setDeletingComplaint] = useState(false)
+
+  // Edit complaint (created-at fields)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({
+    source: '',
+    received_at: '',
+    description: '',
+    category: '',
+    reason: '',
+    vulnerability_flag: false,
+    vulnerability_notes: '',
+    policy_number: '',
+    product: '',
+    insurer: '',
+    broker: '',
+    scheme: '',
+    complainant_full_name: '',
+    complainant_email: '',
+    complainant_phone: '',
+    complainant_address: '',
+    complainant_dob: '',
+  })
   
   // Assignment state
   const [showAssignModal, setShowAssignModal] = useState(false)
@@ -525,6 +549,84 @@ export default function ComplaintDetail() {
     }
   }
 
+  const openEditModal = () => {
+    if (!complaint) return
+    setEditError(null)
+    setEditForm({
+      source: complaint.source || '',
+      received_at: complaint.received_at ? dayjs(complaint.received_at).format('YYYY-MM-DDTHH:mm') : dayjs().format('YYYY-MM-DDTHH:mm'),
+      description: complaint.description || '',
+      category: complaint.category || '',
+      reason: complaint.reason || '',
+      vulnerability_flag: !!complaint.vulnerability_flag,
+      vulnerability_notes: complaint.vulnerability_notes || '',
+      policy_number: complaint.policy_number || '',
+      product: complaint.product || '',
+      insurer: complaint.insurer || '',
+      broker: complaint.broker || '',
+      scheme: complaint.scheme || '',
+      complainant_full_name: complaint.complainant?.full_name || '',
+      complainant_email: complaint.complainant?.email || '',
+      complainant_phone: complaint.complainant?.phone || '',
+      complainant_address: complaint.complainant?.address || '',
+      complainant_dob: complaint.complainant?.date_of_birth ? dayjs(complaint.complainant.date_of_birth).format('YYYY-MM-DD') : '',
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!id) return
+    setSavingEdit(true)
+    setEditError(null)
+    try {
+      const payload: any = {
+        source: editForm.source || null,
+        received_at: editForm.received_at ? dayjs(editForm.received_at).toISOString() : null,
+        description: editForm.description || null,
+        category: editForm.category || null,
+        reason: editForm.reason || null,
+        vulnerability_flag: editForm.vulnerability_flag,
+        vulnerability_notes: editForm.vulnerability_notes || null,
+        product: editForm.product || null,
+        insurer: editForm.insurer || null,
+        broker: editForm.broker || null,
+        scheme: editForm.scheme || null,
+        policy_number: editForm.policy_number || null,
+        complainant: {
+          full_name: editForm.complainant_full_name || null,
+          email: editForm.complainant_email || null,
+          phone: editForm.complainant_phone || null,
+          address: editForm.complainant_address || null,
+          date_of_birth: editForm.complainant_dob || null,
+        },
+        policy: {
+          policy_number: editForm.policy_number || null,
+          insurer: editForm.insurer || null,
+          broker: editForm.broker || null,
+          product: editForm.product || null,
+          scheme: editForm.scheme || null,
+        },
+      }
+
+      // Remove null-only nested objects if user left everything blank
+      if (payload.complainant && !Object.values(payload.complainant).some((v) => v !== null)) {
+        delete payload.complainant
+      }
+      if (payload.policy && !Object.values(payload.policy).some((v) => v !== null)) {
+        delete payload.policy
+      }
+
+      await api.patch(`/complaints/${id}`, payload)
+      setShowEditModal(false)
+      loadComplaint()
+      setUiMessage({ type: 'success', text: 'Complaint updated' })
+    } catch (err: any) {
+      setEditError(err?.response?.data?.detail || 'Failed to update complaint')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   return (
     <>
       <TopBar
@@ -532,6 +634,11 @@ export default function ComplaintDetail() {
         actions={
           <div className="flex items-center gap-3">
             <StatusChip status={complaint.status} />
+            {user?.role !== 'read_only' && (
+              <Button variant="secondary" onClick={openEditModal}>
+                Edit Complaint
+              </Button>
+            )}
             {user?.role === 'admin' && (
               <Button
                 variant="secondary"
@@ -1890,6 +1997,205 @@ export default function ComplaintDetail() {
           </Button>
           <Button variant="primary" onClick={handleConfirmFinalResponseWithoutAttachment} disabled={addingComm}>
             Continue anyway
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Edit Complaint Modal */}
+      <Modal open={showEditModal} onClose={() => setShowEditModal(false)}>
+        <ModalHeader onClose={() => setShowEditModal(false)}>Edit Complaint</ModalHeader>
+        <ModalBody>
+          {editError && (
+            <div className="mb-4 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              {editError}
+            </div>
+          )}
+          <div className="space-y-6">
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <p className="text-xs font-semibold text-text-secondary mb-3">Receipt Information</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Source</label>
+                  <select
+                    aria-label="Source"
+                    className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    value={editForm.source}
+                    onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
+                  >
+                    <option value="">Select source…</option>
+                    <option value="email">Email</option>
+                    <option value="phone">Phone</option>
+                    <option value="letter">Letter</option>
+                    <option value="web">Web Form</option>
+                    <option value="third_party">Third Party</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Received</label>
+                  <Input
+                    type="datetime-local"
+                    value={editForm.received_at}
+                    onChange={(e) => setEditForm({ ...editForm, received_at: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <p className="text-xs font-semibold text-text-secondary mb-3">Complaint Details</p>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Category</label>
+                    <Input
+                      value={editForm.category}
+                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                      placeholder="Category…"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Reason</label>
+                    <Input
+                      value={editForm.reason}
+                      onChange={(e) => setEditForm({ ...editForm, reason: e.target.value })}
+                      placeholder="Reason…"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Description</label>
+                  <textarea
+                    className="w-full min-h-[120px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    placeholder="Description…"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <p className="text-xs font-semibold text-text-secondary mb-3">Complainant Details</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Full Name</label>
+                  <Input
+                    value={editForm.complainant_full_name}
+                    onChange={(e) => setEditForm({ ...editForm, complainant_full_name: e.target.value })}
+                    placeholder="Full name…"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Date of Birth</label>
+                  <Input
+                    type="date"
+                    value={editForm.complainant_dob}
+                    onChange={(e) => setEditForm({ ...editForm, complainant_dob: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Email</label>
+                  <Input
+                    value={editForm.complainant_email}
+                    onChange={(e) => setEditForm({ ...editForm, complainant_email: e.target.value })}
+                    placeholder="Email…"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Phone</label>
+                  <Input
+                    value={editForm.complainant_phone}
+                    onChange={(e) => setEditForm({ ...editForm, complainant_phone: e.target.value })}
+                    placeholder="Phone…"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Address</label>
+                  <textarea
+                    className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    value={editForm.complainant_address}
+                    onChange={(e) => setEditForm({ ...editForm, complainant_address: e.target.value })}
+                    placeholder="Address…"
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer mt-4">
+                <input
+                  type="checkbox"
+                  checked={editForm.vulnerability_flag}
+                  onChange={() => setEditForm({ ...editForm, vulnerability_flag: !editForm.vulnerability_flag })}
+                  className="h-4 w-4 rounded border-border text-brand focus:ring-2 focus:ring-brand/15"
+                />
+                <span className="text-sm font-medium text-text-primary">Vulnerable Customer</span>
+              </label>
+              {editForm.vulnerability_flag && (
+                <div className="space-y-2 mt-3">
+                  <label className="block text-xs font-medium text-text-primary">Vulnerability Notes</label>
+                  <textarea
+                    className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    value={editForm.vulnerability_notes}
+                    onChange={(e) => setEditForm({ ...editForm, vulnerability_notes: e.target.value })}
+                    placeholder="Notes…"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <p className="text-xs font-semibold text-text-secondary mb-3">Policy Information</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Policy Number</label>
+                  <Input
+                    value={editForm.policy_number}
+                    onChange={(e) => setEditForm({ ...editForm, policy_number: e.target.value })}
+                    placeholder="Policy number…"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Product</label>
+                  <Input
+                    value={editForm.product}
+                    onChange={(e) => setEditForm({ ...editForm, product: e.target.value })}
+                    placeholder="Product…"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Insurer</label>
+                  <Input
+                    value={editForm.insurer}
+                    onChange={(e) => setEditForm({ ...editForm, insurer: e.target.value })}
+                    placeholder="Insurer…"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">Broker</label>
+                  <Input
+                    value={editForm.broker}
+                    onChange={(e) => setEditForm({ ...editForm, broker: e.target.value })}
+                    placeholder="Broker…"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <label className="block text-xs font-medium text-text-primary">Scheme</label>
+                  <Input
+                    value={editForm.scheme}
+                    onChange={(e) => setEditForm({ ...editForm, scheme: e.target.value })}
+                    placeholder="Scheme…"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowEditModal(false)} disabled={savingEdit}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSaveEdit} disabled={savingEdit}>
+            {savingEdit ? 'Saving…' : 'Save changes'}
           </Button>
         </ModalFooter>
       </Modal>

@@ -68,6 +68,7 @@ export interface Complainant {
   email?: string
   phone?: string
   address?: string
+  date_of_birth?: string
 }
 
 export interface Complaint {
