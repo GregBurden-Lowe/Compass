@@ -10,6 +10,8 @@ export default function CreateComplaintWizard() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   // Reference data
   const [products, setProducts] = useState<string[]>([])
@@ -55,9 +57,91 @@ export default function CreateComplaintWizard() {
     complainant_dob: '',
   })
 
+  // Track changes for unsaved warning
+  useEffect(() => {
+    const hasData = formData.complainant_name || formData.description || formData.category
+    setHasUnsavedChanges(hasData)
+  }, [formData])
+
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + S to submit
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault()
+        document.getElementById('submit-btn')?.click()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const validateEmail = (email: string) => {
+    if (!email) return true
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  }
+
+  const handleFieldChange = (field: string, value: any) => {
+    setFormData({ ...formData, [field]: value })
+    // Clear validation error for this field
+    if (validationErrors[field]) {
+      const newErrors = { ...validationErrors }
+      delete newErrors[field]
+      setValidationErrors(newErrors)
+    }
+  }
+
+  const handleCancel = () => {
+    if (hasUnsavedChanges) {
+      if (!confirm('You have unsaved changes. Are you sure you want to cancel?')) {
+        return
+      }
+    }
+    navigate('/complaints')
+  }
+
+  const setToNow = () => {
+    setFormData({ ...formData, received_at: dayjs().format('YYYY-MM-DDTHH:mm') })
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setValidationErrors({})
+    
+    // Client-side validation
+    const errors: Record<string, string> = {}
+    if (!formData.complainant_name.trim()) {
+      errors.complainant_name = 'Full name is required'
+    }
+    if (formData.complainant_email && !validateEmail(formData.complainant_email)) {
+      errors.complainant_email = 'Invalid email format'
+    }
+    if (!formData.description.trim()) {
+      errors.description = 'Description is required'
+    }
+    if (!formData.category) {
+      errors.category = 'Category is required'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors)
+      setError('Please fix the validation errors before submitting')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -92,16 +176,46 @@ export default function CreateComplaintWizard() {
         },
       })
 
-      navigate(`/complaints/${res.data.id}`)
+      setHasUnsavedChanges(false)
+      navigate(`/complaints/${res.data.id}`, { 
+        state: { message: 'Complaint created successfully!' } 
+      })
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'Failed to create complaint')
       setLoading(false)
     }
   }
 
+  const getCharacterCount = (text: string, max: number) => {
+    const remaining = max - text.length
+    const isNearLimit = remaining <= 50
+    const isOverLimit = remaining < 0
+    return (
+      <span className={`text-xs ${
+        isOverLimit ? 'text-semantic-error' : 
+        isNearLimit ? 'text-semantic-warning' : 
+        'text-text-muted'
+      }`}>
+        {text.length} / {max}
+      </span>
+    )
+  }
+
   return (
     <>
-      <TopBar title="Create New Complaint" />
+      <TopBar 
+        title="Create New Complaint"
+        actions={
+          <div className="flex items-center gap-4">
+            {hasUnsavedChanges && (
+              <span className="text-xs text-text-muted">Unsaved changes</span>
+            )}
+            <Button variant="secondary" onClick={handleCancel} type="button">
+              Cancel
+            </Button>
+          </div>
+        }
+      />
 
       <div className="px-10 py-6 max-w-4xl">
         {error && (
@@ -109,6 +223,26 @@ export default function CreateComplaintWizard() {
             {error}
           </div>
         )}
+
+        {/* Progress Indicator */}
+        <div className="mb-6 bg-surface rounded-lg border border-border p-4">
+          <div className="flex items-center justify-between text-xs text-text-secondary mb-2">
+            <span>Complaint Creation Form</span>
+            <span className="text-text-muted">Tip: Press Cmd/Ctrl + S to submit</span>
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1 h-1 bg-brand rounded-full" title="Receipt Information" />
+            <div className="flex-1 h-1 bg-brand rounded-full" title="Complainant Details" />
+            <div className="flex-1 h-1 bg-brand rounded-full" title="Complaint Details" />
+            <div className="flex-1 h-1 bg-brand rounded-full" title="Policy Information" />
+          </div>
+          <div className="flex justify-between text-xs text-text-muted mt-2">
+            <span>Receipt</span>
+            <span>Complainant</span>
+            <span>Complaint</span>
+            <span>Policy</span>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* 1. Receipt Information */}
@@ -120,11 +254,14 @@ export default function CreateComplaintWizard() {
               <div className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Source *</label>
+                    <label htmlFor="source" className="block text-xs font-medium text-text-primary">
+                      Source *
+                    </label>
                     <select
+                      id="source"
                       className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                       value={formData.source}
-                      onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                      onChange={(e) => handleFieldChange('source', e.target.value)}
                       required
                     >
                       <option value="Email">Email</option>
@@ -136,11 +273,23 @@ export default function CreateComplaintWizard() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Date Received *</label>
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="received_at" className="block text-xs font-medium text-text-primary">
+                        Date Received *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={setToNow}
+                        className="text-xs text-brand hover:text-brand-dark font-medium"
+                      >
+                        Set to Now
+                      </button>
+                    </div>
                     <Input
+                      id="received_at"
                       type="datetime-local"
                       value={formData.received_at}
-                      onChange={(e) => setFormData({ ...formData, received_at: e.target.value })}
+                      onChange={(e) => handleFieldChange('received_at', e.target.value)}
                       required
                     />
                   </div>
@@ -157,34 +306,47 @@ export default function CreateComplaintWizard() {
             <CardBody>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-text-primary">Full Name *</label>
+                  <label htmlFor="complainant_name" className="block text-xs font-medium text-text-primary">
+                    Full Name *
+                  </label>
                   <Input
+                    id="complainant_name"
                     value={formData.complainant_name}
-                    onChange={(e) => setFormData({ ...formData, complainant_name: e.target.value })}
+                    onChange={(e) => handleFieldChange('complainant_name', e.target.value)}
                     placeholder="John Doe"
                     required
+                    className={validationErrors.complainant_name ? 'border-semantic-error' : ''}
                   />
+                  {validationErrors.complainant_name && (
+                    <p className="text-xs text-semantic-error">{validationErrors.complainant_name}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Email</label>
+                    <label htmlFor="complainant_email" className="block text-xs font-medium text-text-primary">
+                      Email
+                    </label>
                     <Input
+                      id="complainant_email"
                       type="email"
                       value={formData.complainant_email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, complainant_email: e.target.value })
-                      }
+                      onChange={(e) => handleFieldChange('complainant_email', e.target.value)}
                       placeholder="john@example.com"
+                      className={validationErrors.complainant_email ? 'border-semantic-error' : ''}
                     />
+                    {validationErrors.complainant_email && (
+                      <p className="text-xs text-semantic-error">{validationErrors.complainant_email}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Phone</label>
+                    <label htmlFor="complainant_phone" className="block text-xs font-medium text-text-primary">
+                      Phone
+                    </label>
                     <Input
+                      id="complainant_phone"
                       value={formData.complainant_phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, complainant_phone: e.target.value })
-                      }
+                      onChange={(e) => handleFieldChange('complainant_phone', e.target.value)}
                       placeholder="+44 20 1234 5678"
                     />
                   </div>
@@ -192,22 +354,25 @@ export default function CreateComplaintWizard() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Date of Birth</label>
+                    <label htmlFor="complainant_dob" className="block text-xs font-medium text-text-primary">
+                      Date of Birth
+                      <span className="text-text-muted font-normal ml-1">(for verification)</span>
+                    </label>
                     <Input
+                      id="complainant_dob"
                       type="date"
                       value={formData.complainant_dob}
-                      onChange={(e) =>
-                        setFormData({ ...formData, complainant_dob: e.target.value })
-                      }
+                      onChange={(e) => handleFieldChange('complainant_dob', e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Address</label>
+                    <label htmlFor="complainant_address" className="block text-xs font-medium text-text-primary">
+                      Address
+                    </label>
                     <Input
+                      id="complainant_address"
                       value={formData.complainant_address}
-                      onChange={(e) =>
-                        setFormData({ ...formData, complainant_address: e.target.value })
-                      }
+                      onChange={(e) => handleFieldChange('complainant_address', e.target.value)}
                       placeholder="Full address..."
                     />
                   </div>
@@ -218,10 +383,11 @@ export default function CreateComplaintWizard() {
                   <div className="space-y-3">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input
+                        id="vulnerability_flag"
                         type="checkbox"
                         checked={formData.vulnerability_flag}
                         onChange={() =>
-                          setFormData({ ...formData, vulnerability_flag: !formData.vulnerability_flag })
+                          handleFieldChange('vulnerability_flag', !formData.vulnerability_flag)
                         }
                         className="h-4 w-4 rounded border-border text-brand focus:ring-2 focus:ring-brand/15"
                       />
@@ -231,16 +397,19 @@ export default function CreateComplaintWizard() {
                     </label>
                     {formData.vulnerability_flag && (
                       <div className="pl-7 space-y-2">
-                        <label className="block text-xs font-medium text-text-primary">
-                          Vulnerability Notes
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label htmlFor="vulnerability_notes" className="block text-xs font-medium text-text-primary">
+                            Vulnerability Notes
+                          </label>
+                          {getCharacterCount(formData.vulnerability_notes, 500)}
+                        </div>
                         <textarea
+                          id="vulnerability_notes"
                           className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                           value={formData.vulnerability_notes}
-                          onChange={(e) =>
-                            setFormData({ ...formData, vulnerability_notes: e.target.value })
-                          }
+                          onChange={(e) => handleFieldChange('vulnerability_notes', e.target.value)}
                           placeholder="Details about vulnerability..."
+                          maxLength={500}
                         />
                       </div>
                     )}
@@ -258,23 +427,40 @@ export default function CreateComplaintWizard() {
             <CardBody>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-text-primary">Description *</label>
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="description" className="block text-xs font-medium text-text-primary">
+                      Description *
+                    </label>
+                    {getCharacterCount(formData.description, 2000)}
+                  </div>
                   <textarea
-                    className="w-full min-h-[120px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    id="description"
+                    className={`w-full min-h-[120px] rounded-lg border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15 ${
+                      validationErrors.description ? 'border-semantic-error' : 'border-border'
+                    }`}
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) => handleFieldChange('description', e.target.value)}
                     placeholder="Detailed description of the complaint..."
+                    maxLength={2000}
                     required
                   />
+                  {validationErrors.description && (
+                    <p className="text-xs text-semantic-error">{validationErrors.description}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Category *</label>
+                    <label htmlFor="category" className="block text-xs font-medium text-text-primary">
+                      Category *
+                    </label>
                     <select
-                      className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                      id="category"
+                      className={`w-full h-10 rounded-lg border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15 ${
+                        validationErrors.category ? 'border-semantic-error' : 'border-border'
+                      }`}
                       value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      onChange={(e) => handleFieldChange('category', e.target.value)}
                       required
                     >
                       <option value="">Select category...</option>
@@ -286,12 +472,19 @@ export default function CreateComplaintWizard() {
                       <option value="Sales">Sales</option>
                       <option value="Other">Other</option>
                     </select>
+                    {validationErrors.category && (
+                      <p className="text-xs text-semantic-error">{validationErrors.category}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Reason</label>
+                    <label htmlFor="reason" className="block text-xs font-medium text-text-primary">
+                      Reason
+                      <span className="text-text-muted font-normal ml-1">(optional)</span>
+                    </label>
                     <Input
+                      id="reason"
                       value={formData.reason}
-                      onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                      onChange={(e) => handleFieldChange('reason', e.target.value)}
                       placeholder="Specific reason..."
                     />
                   </div>
@@ -309,18 +502,24 @@ export default function CreateComplaintWizard() {
               <div className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Policy Number</label>
+                    <label htmlFor="policy_number" className="block text-xs font-medium text-text-primary">
+                      Policy Number
+                      <span className="text-text-muted font-normal ml-1">(if known)</span>
+                    </label>
                     <Input
+                      id="policy_number"
                       value={formData.policy_number}
-                      onChange={(e) => setFormData({ ...formData, policy_number: e.target.value })}
+                      onChange={(e) => handleFieldChange('policy_number', e.target.value)}
                       placeholder="POL-12345"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Product</label>
+                    <label htmlFor="product" className="block text-xs font-medium text-text-primary">
+                      Product
+                    </label>
                     <Combobox
                       value={formData.product}
-                      onChange={(value) => setFormData({ ...formData, product: value })}
+                      onChange={(value) => handleFieldChange('product', value)}
                       options={products}
                       placeholder="Select or type product..."
                     />
@@ -329,19 +528,23 @@ export default function CreateComplaintWizard() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Insurer</label>
+                    <label htmlFor="insurer" className="block text-xs font-medium text-text-primary">
+                      Insurer
+                    </label>
                     <Combobox
                       value={formData.insurer}
-                      onChange={(value) => setFormData({ ...formData, insurer: value })}
+                      onChange={(value) => handleFieldChange('insurer', value)}
                       options={insurers}
                       placeholder="Select or type insurer..."
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-text-primary">Broker</label>
+                    <label htmlFor="broker" className="block text-xs font-medium text-text-primary">
+                      Broker
+                    </label>
                     <Combobox
                       value={formData.broker}
-                      onChange={(value) => setFormData({ ...formData, broker: value })}
+                      onChange={(value) => handleFieldChange('broker', value)}
                       options={brokers}
                       placeholder="Select or type broker..."
                     />
@@ -349,10 +552,13 @@ export default function CreateComplaintWizard() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-xs font-medium text-text-primary">Scheme</label>
+                  <label htmlFor="scheme" className="block text-xs font-medium text-text-primary">
+                    Scheme
+                  </label>
                   <Input
+                    id="scheme"
                     value={formData.scheme}
-                    onChange={(e) => setFormData({ ...formData, scheme: e.target.value })}
+                    onChange={(e) => handleFieldChange('scheme', e.target.value)}
                     placeholder="Scheme name..."
                   />
                 </div>
@@ -361,11 +567,11 @@ export default function CreateComplaintWizard() {
           </Card>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 sticky bottom-6 bg-app/95 backdrop-blur-sm p-4 rounded-lg border border-border">
-            <Button variant="secondary" onClick={() => navigate('/complaints')} type="button">
+          <div className="flex justify-end gap-3 sticky bottom-6 bg-app/95 backdrop-blur-sm p-4 rounded-lg border border-border shadow-lg">
+            <Button variant="secondary" onClick={handleCancel} type="button">
               Cancel
             </Button>
-            <Button variant="primary" type="submit" disabled={loading}>
+            <Button id="submit-btn" variant="primary" type="submit" disabled={loading}>
               {loading ? (
                 <span className="flex items-center gap-2">
                   <svg
