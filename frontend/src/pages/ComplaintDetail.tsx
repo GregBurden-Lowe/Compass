@@ -21,6 +21,10 @@ export default function ComplaintDetail() {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [users, setUsers] = useState<User[]>([])
   const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [historyViewMode, setHistoryViewMode] = useState<
+    'all' | 'status' | 'communications' | 'decisions' | 'assignment'
+  >('all')
+  const [historyShowViewed, setHistoryShowViewed] = useState(false)
   
   // Assignment state
   const [showAssignModal, setShowAssignModal] = useState(false)
@@ -925,14 +929,111 @@ export default function ComplaintDetail() {
         {activeTab === 'history' && (
           <Card>
             <CardHeader>
-              <CardTitle>Activity History</CardTitle>
+              <div className="flex items-start justify-between gap-4 w-full">
+                <div>
+                  <CardTitle>Activity History</CardTitle>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    Filter noise to review key compliance events quickly.
+                  </p>
+                </div>
+              </div>
             </CardHeader>
             <CardBody>
               {events && events.length > 0 ? (
-                <div className="space-y-0 mt-4">
-                  {events
-                    .sort((a, b) => dayjs(b.created_at).valueOf() - dayjs(a.created_at).valueOf())
-                    .map((event) => {
+                <>
+                  {/* History filters */}
+                  <div className="mt-4 mb-4 rounded-lg border border-border bg-surface p-4">
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(
+                          [
+                            { key: 'all', label: 'All' },
+                            { key: 'status', label: 'Status changes' },
+                            { key: 'communications', label: 'Communications' },
+                            { key: 'decisions', label: 'Outcome / Redress / FOS' },
+                            { key: 'assignment', label: 'Assignment' },
+                          ] as const
+                        ).map((opt) => (
+                          <button
+                            key={opt.key}
+                            onClick={() => setHistoryViewMode(opt.key)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
+                              historyViewMode === opt.key
+                                ? 'bg-app border-border text-text-primary'
+                                : 'bg-surface border-border text-text-secondary hover:text-text-primary hover:bg-app'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={historyShowViewed}
+                            onChange={(e) => setHistoryShowViewed(e.target.checked)}
+                            className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
+                          />
+                          <span className="text-sm text-text-primary">Show “Viewed”</span>
+                        </label>
+
+                        <button
+                          onClick={() => {
+                            setHistoryViewMode('all')
+                            setHistoryShowViewed(false)
+                          }}
+                          className="text-sm font-medium text-brand hover:text-brand-dark"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-0">
+                    {(() => {
+                      const sorted = [...events].sort(
+                        (a, b) => dayjs(b.created_at).valueOf() - dayjs(a.created_at).valueOf()
+                      )
+
+                      const statusEventTypes = new Set([
+                        'created',
+                        'updated',
+                        'acknowledged',
+                        'investigation_started',
+                        'response_drafted',
+                        'final_response_issued',
+                        'closed',
+                        'closed_non_reportable',
+                        'reopened',
+                        'escalated',
+                      ])
+                      const commEventTypes = new Set(['communication_added'])
+                      const decisionEventTypes = new Set(['outcome_recorded', 'redress_added', 'redress_updated', 'referred_to_fos'])
+                      const assignmentEventTypes = new Set(['assigned'])
+
+                      const filtered = sorted.filter((e) => {
+                        if (!historyShowViewed && e.event_type === 'accessed') return false
+
+                        if (historyViewMode === 'status') return statusEventTypes.has(e.event_type)
+                        if (historyViewMode === 'communications') return commEventTypes.has(e.event_type)
+                        if (historyViewMode === 'decisions') return decisionEventTypes.has(e.event_type)
+                        if (historyViewMode === 'assignment') return assignmentEventTypes.has(e.event_type)
+                        return true
+                      })
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="text-center py-10 rounded-lg border border-border bg-surface">
+                            <p className="text-sm font-semibold text-text-primary">No events match your filters</p>
+                            <p className="mt-1 text-sm text-text-secondary">Try resetting filters or enabling “Viewed”.</p>
+                          </div>
+                        )
+                      }
+
+                      return filtered.map((event) => {
                       const getEventIcon = (eventType: string) => {
                         if (eventType === 'created') return '📋'
                         if (eventType === 'accessed') return '👁️'
@@ -989,8 +1090,10 @@ export default function ComplaintDetail() {
                           </div>
                         </div>
                       )
-                    })}
-                </div>
+                      })
+                    })()}
+                  </div>
+                </>
               ) : (
                 <div className="text-center py-12 mt-4">
                   <svg
