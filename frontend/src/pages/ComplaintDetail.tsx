@@ -69,6 +69,13 @@ export default function ComplaintDetail() {
   const [closeDate, setCloseDate] = useState(dayjs().format('YYYY-MM-DDTHH:mm'))
   const [closing, setClosing] = useState(false)
 
+  // FOS referral modal
+  const [showFosModal, setShowFosModal] = useState(false)
+  const [fosReference, setFosReference] = useState('')
+  const [fosReferredAt, setFosReferredAt] = useState(dayjs().format('YYYY-MM-DDTHH:mm'))
+  const [referringToFos, setReferringToFos] = useState(false)
+  const [fosError, setFosError] = useState<string | null>(null)
+
   useEffect(() => {
     if (!id) return
     loadComplaint()
@@ -336,6 +343,36 @@ export default function ComplaintDetail() {
     }
   }
 
+  const openFosModal = () => {
+    setFosError(null)
+    setFosReference('')
+    setFosReferredAt(dayjs().format('YYYY-MM-DDTHH:mm'))
+    setShowFosModal(true)
+  }
+
+  const handleReferToFos = async () => {
+    if (!id) return
+    if (!fosReference.trim()) {
+      setFosError('FOS reference is required')
+      return
+    }
+
+    setReferringToFos(true)
+    setFosError(null)
+    try {
+      await api.post(`/complaints/${id}/refer-to-fos`, {
+        fos_reference: fosReference.trim(),
+        fos_referred_at: fosReferredAt ? dayjs(fosReferredAt).toISOString() : null,
+      })
+      setShowFosModal(false)
+      loadComplaint() // refresh complaint + events
+    } catch (err: any) {
+      setFosError(err?.response?.data?.detail || 'Failed to refer to FOS')
+    } finally {
+      setReferringToFos(false)
+    }
+  }
+
   return (
     <>
       <TopBar
@@ -444,20 +481,7 @@ export default function ComplaintDetail() {
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => {
-                            const reference = prompt('Enter FOS Reference:')
-                            if (reference) {
-                              api.post(`/complaints/${id}/refer-to-fos`, {
-                                fos_reference: reference,
-                                fos_referred_at: new Date().toISOString(),
-                              }).then(() => {
-                                alert('Complaint referred to FOS')
-                                loadComplaint()
-                              }).catch((err: any) => {
-                                alert(err?.response?.data?.detail || 'Failed to refer to FOS')
-                              })
-                            }
-                          }}
+                          onClick={openFosModal}
                         >
                           🏛️ Refer to Ombudsman
                         </Button>
@@ -1036,6 +1060,54 @@ export default function ComplaintDetail() {
           </Button>
           <Button variant="primary" onClick={handleSubmitClose} disabled={closing || !closeDate}>
             {closing ? 'Closing...' : 'Confirm Closure'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Refer to FOS Modal */}
+      <Modal open={showFosModal} onClose={() => setShowFosModal(false)}>
+        <ModalHeader onClose={() => setShowFosModal(false)}>Refer to Ombudsman (FOS)</ModalHeader>
+        <ModalBody>
+          {fosError && (
+            <div className="mb-4 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              {fosError}
+            </div>
+          )}
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">
+              Record the referral details. This can only be done once per complaint.
+            </p>
+            <div className="space-y-2">
+              <label htmlFor="fos-reference" className="block text-xs font-medium text-text-primary">
+                FOS Reference *
+              </label>
+              <Input
+                id="fos-reference"
+                value={fosReference}
+                onChange={(e) => setFosReference(e.target.value)}
+                placeholder="e.g. FOS-12345678"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="fos-date" className="block text-xs font-medium text-text-primary">
+                Date Referred *
+              </label>
+              <Input
+                id="fos-date"
+                type="datetime-local"
+                value={fosReferredAt}
+                onChange={(e) => setFosReferredAt(e.target.value)}
+              />
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowFosModal(false)} disabled={referringToFos}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleReferToFos} disabled={referringToFos || !fosReference.trim()}>
+            {referringToFos ? 'Referring...' : 'Confirm Referral'}
           </Button>
         </ModalFooter>
       </Modal>
