@@ -571,6 +571,24 @@ export default function ComplaintDetail() {
     }
   }
 
+  const handleDownloadTimeline = async () => {
+    if (!id) return
+    try {
+      const res = await api.get(`/complaints/${id}/timeline.pdf`, { responseType: 'blob' })
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${complaint?.reference || 'complaint'}-timeline.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err: any) {
+      setUiMessage({ type: 'error', text: err?.response?.data?.detail || 'Failed to download timeline PDF' })
+    }
+  }
+
   const openEditModal = () => {
     if (!complaint) return
     setEditError(null)
@@ -659,6 +677,11 @@ export default function ComplaintDetail() {
             {user?.role !== 'read_only' && (
               <Button variant="secondary" onClick={openEditModal}>
                 Edit Complaint
+              </Button>
+            )}
+            {user?.role !== 'read_only' && (
+              <Button variant="secondary" onClick={handleDownloadTimeline}>
+                Download Timeline
               </Button>
             )}
             {user?.role === 'admin' && (

@@ -13,6 +13,8 @@ pytest==8.2.2
 httpx==0.27.0
 python-multipart==0.0.9
 pyotp==2.9.0
+# PDF generation (pure python, safe for Docker)
+reportlab==4.2.2
 # NOTE: passlib 1.7.4 is not compatible with bcrypt 4.x.
 # Keep bcrypt pinned to a 3.x release for production stability.
 bcrypt==3.2.2

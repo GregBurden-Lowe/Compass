@@ -19,6 +19,8 @@ from app.api.deps import get_current_user, require_roles
 from app.db.session import get_db
 from app.models.complaint import Complaint
 from app.models.event import ComplaintEvent
+from app.models.outcome import Outcome
+from app.models.redress import RedressPayment
 from app.models.user import User
 from app.models.enums import (
     ComplaintStatus,
@@ -510,6 +512,106 @@ def list_events(
         .all()
     )
     return events
+
+
+@router.get("/{complaint_id}/timeline.pdf")
+def download_timeline_pdf(
+    complaint_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generate a PDF timeline for internal use, similar to the team's current 'timeline' document.
+    """
+    from fastapi.responses import Response
+    from app.utils.timeline_pdf import build_timeline_pdf, TimelineItem
+    import re
+
+    complaint = _get_complaint(db, complaint_id)
+    # Pull events (already used by history tab)
+    events = (
+        db.query(ComplaintEvent)
+        .filter(ComplaintEvent.complaint_id == complaint.id)
+        .order_by(ComplaintEvent.created_at.asc())
+        .all()
+    )
+
+    items: list[TimelineItem] = []
+
+    # Core dates
+    if complaint.received_at:
+        items.append(
+            TimelineItem(
+                when=complaint.received_at,
+                label="Complaint received",
+                details=f"Source: {complaint.source}. Category: {complaint.category}.",
+            )
+        )
+    if complaint.acknowledged_at:
+        items.append(TimelineItem(when=complaint.acknowledged_at, label="Acknowledged", details="Acknowledgement sent."))
+    if complaint.final_response_at:
+        items.append(TimelineItem(when=complaint.final_response_at, label="Final response issued", details="Final response issued."))
+    if complaint.closed_at:
+        items.append(TimelineItem(when=complaint.closed_at, label="Closed", details="Complaint closed."))
+
+    # Communications
+    for comm in complaint.communications or []:
+        label = "Note / Decision" if getattr(comm, "is_internal", False) else "Communication"
+        details = comm.summary
+        items.append(TimelineItem(when=comm.occurred_at, label=label, details=details))
+
+    # Events
+    for ev in events:
+        # Skip noisy 'accessed' by default; it's still in history tab.
+        if ev.event_type == "accessed":
+            continue
+        who = f" ({ev.created_by_name})" if getattr(ev, "created_by_name", None) else ""
+        desc = (ev.description or ev.event_type).strip()
+        # Remove emoji etc. keep clean
+        desc = re.sub(r"\s+", " ", desc)
+        items.append(TimelineItem(when=ev.created_at, label=f"{ev.event_type}{who}", details=desc))
+
+    # Outcome summary
+    outcome_summary = None
+    if complaint.outcome:
+        parts = [f"Outcome: {complaint.outcome.outcome}"]
+        if getattr(complaint.outcome, "rationale", None):
+            parts.append(f"Rationale: {complaint.outcome.rationale}")
+        if complaint.outcome.notes:
+            parts.append(f"Notes: {complaint.outcome.notes}")
+        outcome_summary = "\n".join(parts)
+
+    # Redress summary
+    redress_summary = None
+    if complaint.redress_payments:
+        lines: list[str] = []
+        for rp in complaint.redress_payments:
+            amt = f"£{float(rp.amount):,.2f}" if rp.amount is not None else "—"
+            paid = f", paid {rp.paid_at.date().isoformat()}" if rp.paid_at else ""
+            lines.append(f"- {rp.payment_type}: {amt}{paid}")
+            if rp.rationale:
+                lines.append(f"  Rationale: {rp.rationale}")
+            if rp.notes:
+                lines.append(f"  Notes: {rp.notes}")
+        redress_summary = "\n".join(lines)
+
+    complainant_name = complaint.complainant.full_name if complaint.complainant else None
+    complaint_summary = complaint.description
+
+    pdf_bytes = build_timeline_pdf(
+        reference=complaint.reference,
+        complainant_name=complainant_name,
+        complaint_summary=complaint_summary,
+        items=items,
+        outcome_summary=outcome_summary,
+        redress_summary=redress_summary,
+    )
+    filename = f"{complaint.reference}-timeline.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/{complaint_id}/acknowledge", response_model=ComplaintOut)
