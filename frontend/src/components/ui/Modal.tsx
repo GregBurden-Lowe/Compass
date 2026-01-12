@@ -23,7 +23,7 @@ export function Modal({ open, onClose, children }: ModalProps) {
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 w-[min(560px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-modal border border-border bg-surface p-6 shadow-xl z-50">
+      <div className="fixed left-1/2 top-1/2 w-[min(560px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-modal border border-border bg-surface p-6 shadow-xl z-50 max-h-[90vh] overflow-hidden flex flex-col">
         {children}
       </div>
     </>
@@ -37,12 +37,13 @@ interface ModalHeaderProps {
 
 export function ModalHeader({ children, onClose }: ModalHeaderProps) {
   return (
-    <div className="mb-4 flex items-center justify-between">
+    <div className="mb-4 flex items-center justify-between flex-shrink-0">
       <h2 className="text-lg font-semibold text-text-primary">{children}</h2>
       {onClose && (
         <button
           onClick={onClose}
           className="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-muted hover:bg-app hover:text-text-primary transition"
+          aria-label="Close modal"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -58,7 +59,7 @@ interface ModalBodyProps {
 }
 
 export function ModalBody({ children }: ModalBodyProps) {
-  return <div className="text-sm text-text-secondary">{children}</div>
+  return <div className="text-sm text-text-secondary overflow-y-auto pr-1">{children}</div>
 }
 
 interface ModalFooterProps {
@@ -66,6 +67,6 @@ interface ModalFooterProps {
 }
 
 export function ModalFooter({ children }: ModalFooterProps) {
-  return <div className="mt-6 flex justify-end gap-3">{children}</div>
+  return <div className="mt-6 flex justify-end gap-3 flex-shrink-0">{children}</div>
 }
 
