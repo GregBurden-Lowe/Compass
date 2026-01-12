@@ -9,6 +9,7 @@ from app.models.enums import OutcomeType
 class Outcome(Base):
     complaint_id = Column(ForeignKey("complaint.id", ondelete="CASCADE"), nullable=False)
     outcome = Column(SqlEnum(OutcomeType), nullable=False)
+    rationale = Column(String(2000))
     notes = Column(String(2000))
     recorded_by_id = Column(ForeignKey("user.id"), nullable=True)
     recorded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

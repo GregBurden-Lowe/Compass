@@ -85,17 +85,20 @@ def refresh_breach_flags(complaint: Complaint) -> None:
         ack_due = ack_due.replace(tzinfo=timezone.utc)
     if final_due and final_due.tzinfo is None:
         final_due = final_due.replace(tzinfo=timezone.utc)
-    if complaint.acknowledged_at is None and ack_due and now > ack_due:
-        complaint.ack_breached = True
-    if complaint.final_response_at is None and final_due and now > final_due:
-        complaint.final_breached = True
+    # Flags represent current outstanding breaches (not historical).
+    complaint.ack_breached = bool(complaint.acknowledged_at is None and ack_due and now > ack_due)
+    complaint.final_breached = bool(complaint.final_response_at is None and final_due and now > final_due)
 
 
 def acknowledge(db: Session, complaint: Complaint, user_id: Optional[str]) -> Complaint:
     if complaint.status not in (ComplaintStatus.new, ComplaintStatus.reopened):
         return complaint
+    refresh_breach_flags(complaint)
+    if complaint.ack_breached:
+        add_event(db, complaint, "ack_sla_breached", "Acknowledgement SLA breached (sent late)", user_id)
     complaint.status = ComplaintStatus.acknowledged
     complaint.acknowledged_at = utcnow()
+    complaint.ack_breached = False
     add_event(db, complaint, "acknowledged", "Acknowledgement sent", user_id)
     return complaint
 
@@ -119,17 +122,20 @@ def record_outcome(
     db: Session,
     complaint: Complaint,
     outcome: OutcomeType,
+    rationale: Optional[str],
     notes: Optional[str],
     user_id: Optional[str],
 ) -> Outcome:
     if complaint.outcome:
         complaint.outcome.outcome = outcome
+        complaint.outcome.rationale = rationale
         complaint.outcome.notes = notes
         complaint.outcome.recorded_by_id = user_id
     else:
         complaint.outcome = Outcome(
             complaint_id=complaint.id,
             outcome=outcome,
+            rationale=rationale,
             notes=notes,
             recorded_by_id=user_id,
         )
@@ -141,8 +147,12 @@ def record_outcome(
 def issue_final_response(db: Session, complaint: Complaint, user_id: Optional[str]) -> Complaint:
     if not complaint.outcome:
         raise ValueError("Outcome required before final response")
+    refresh_breach_flags(complaint)
+    if complaint.final_breached:
+        add_event(db, complaint, "final_sla_breached", "Final response SLA breached (sent late)", user_id)
     complaint.status = ComplaintStatus.final_response_issued
     complaint.final_response_at = utcnow()
+    complaint.final_breached = False
     add_event(db, complaint, "final_response_issued", "Final response issued", user_id)
     return complaint
 
@@ -222,6 +232,11 @@ def refer_to_fos(
 ) -> Complaint:
     if complaint.fos_complaint:
         raise ValueError("Complaint has already been referred to FOS")
+    # If closed, automatically reopen when referring to FOS
+    if complaint.status == ComplaintStatus.closed:
+        complaint.status = ComplaintStatus.reopened
+        complaint.closed_at = None
+        add_event(db, complaint, "reopened", "Complaint reopened due to FOS referral", user_id)
     complaint.fos_complaint = True
     complaint.fos_reference = fos_reference
     complaint.fos_referred_at = fos_referred_at or utcnow()
@@ -256,6 +271,7 @@ def add_communication_with_attachments(
     summary: str,
     occurred_at: datetime,
     is_final_response: bool = False,
+    is_internal: bool = False,
     attachment_files: Iterable[dict] | None = None,
     user_id: Optional[str] = None,
 ) -> Communication:
@@ -273,6 +289,7 @@ def add_communication_with_attachments(
         occurred_at=occurred_at,
         user_id=user_id,
         is_final_response=is_final_response,
+        is_internal=is_internal,
     )
     db.add(comm)
     db.flush()
@@ -286,7 +303,7 @@ def add_communication_with_attachments(
         )
         attachments.append(attachment)
         db.add(attachment)
-    add_event(db, complaint, "communication_added", summary[:240], user_id)
+    add_event(db, complaint, "note_added" if is_internal else "communication_added", summary[:240], user_id)
     return comm
 
 
@@ -303,6 +320,7 @@ def add_redress_payment(
     action_status: ActionStatus | str,
     approved: bool,
     user_id: Optional[str],
+    paid_at: Optional[datetime] = None,
 ) -> RedressPayment:
     def normalize_payment_type(pt: RedressType | str) -> RedressType:
         if isinstance(pt, RedressType):
@@ -324,7 +342,9 @@ def add_redress_payment(
     payment_type_value = payment_type.value
     if payment_type_value == "apology":
         payment_type_value = "apology_or_explanation"
-    status = RedressPaymentStatus(status)
+    # Treat redress as record-only (no standalone workflow).
+    # Keep status internally as pending and always approved.
+    status = RedressPaymentStatus.pending
     action_status = ActionStatus(action_status)
     monetary_types = {
         RedressType.financial_loss,
@@ -344,8 +364,6 @@ def add_redress_payment(
     else:
         if action_description is None or action_description.strip() == "":
             raise ValueError("Action description required for non-monetary redress")
-    if status != RedressPaymentStatus.pending and not approved:
-        raise ValueError("Redress must be approved before changing payment status")
     payment = RedressPayment(
         complaint_id=complaint.id,
         outcome_id=outcome_id,
@@ -356,7 +374,8 @@ def add_redress_payment(
         rationale=rationale,
         action_description=action_description,
         action_status=action_status,
-        approved=approved,
+        approved=True,
+        paid_at=paid_at,
     )
     db.add(payment)
     add_event(db, complaint, "redress_added", f"Redress {amount or ''} {payment_type}", user_id)
@@ -373,6 +392,7 @@ def update_redress_payment(
     action_status: Optional[ActionStatus | str] = None,
     approved: Optional[bool] = None,
     amount: Optional[float] = None,
+    paid_at: Optional[datetime] = None,
 ) -> RedressPayment:
     monetary_types = {
         RedressType.financial_loss,
@@ -385,14 +405,13 @@ def update_redress_payment(
     }
     is_monetary = payment.payment_type in monetary_types
     if status is not None:
-        status = RedressPaymentStatus(status)
-        if status != RedressPaymentStatus.pending and not (approved if approved is not None else payment.approved):
-            raise ValueError("Redress must be approved before changing payment status")
-        payment.status = status
+        # Keep record-only: ignore status changes from clients.
+        payment.status = RedressPaymentStatus.pending
     if action_status is not None:
         payment.action_status = ActionStatus(action_status)
     if approved is not None:
-        payment.approved = approved
+        # Keep record-only: ignore approved changes from clients.
+        payment.approved = True
     if amount is not None:
         payment.amount = amount
     if notes is not None:
@@ -401,16 +420,27 @@ def update_redress_payment(
         payment.rationale = rationale
     if action_description is not None:
         payment.action_description = action_description
+    if paid_at is not None:
+        payment.paid_at = paid_at
     if not is_monetary:
         # ensure action description exists
         if not (payment.action_description and payment.action_description.strip()):
             raise ValueError("Action description required for non-monetary redress")
-    add_event(
-        db,
-        payment.complaint,
-        "redress_updated",
-        f"Redress updated (status={payment.status}, action_status={payment.action_status})",
-        None,
-    )
+    if paid_at is not None:
+        add_event(
+            db,
+            payment.complaint,
+            "redress_paid",
+            f"Payment date recorded: {paid_at.date().isoformat()}",
+            None,
+        )
+    else:
+        add_event(
+            db,
+            payment.complaint,
+            "redress_updated",
+            f"Redress updated (status={payment.status}, action_status={payment.action_status})",
+            None,
+        )
     return payment
 

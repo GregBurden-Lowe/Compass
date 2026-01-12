@@ -104,6 +104,7 @@ class CommunicationBase(BaseModel):
     summary: str
     occurred_at: datetime
     is_final_response: bool = False
+    is_internal: bool = False
 
 
 class CommunicationCreate(CommunicationBase):
@@ -152,12 +153,14 @@ class TaskOut(TaskBase):
 
 class OutcomeCreate(BaseModel):
     outcome: OutcomeType
+    rationale: Optional[str] = None
     notes: Optional[str] = None
 
 
 class OutcomeOut(BaseModel):
     id: UUID
     outcome: OutcomeType
+    rationale: Optional[str]
     notes: Optional[str]
     recorded_at: datetime
 
@@ -175,6 +178,7 @@ class RedressCreate(BaseModel):
     action_description: Optional[str] = None
     action_status: Optional[ActionStatus] = ActionStatus.not_started
     approved: bool = False
+    paid_at: Optional[datetime] = None
 
 
 class RedressUpdate(BaseModel):
@@ -185,6 +189,7 @@ class RedressUpdate(BaseModel):
     action_description: Optional[str] = None
     action_status: Optional[ActionStatus] = None
     approved: Optional[bool] = None
+    paid_at: Optional[datetime] = None
 
 
 class RedressOut(BaseModel):
@@ -198,6 +203,7 @@ class RedressOut(BaseModel):
     action_description: Optional[str]
     action_status: ActionStatus
     approved: bool
+    paid_at: Optional[datetime] = None
 
     class Config:
         orm_mode = True

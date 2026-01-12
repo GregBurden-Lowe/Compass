@@ -487,6 +487,7 @@ def update_redress(
             action_status=payload.action_status,
             approved=payload.approved,
             amount=payload.amount,
+            paid_at=payload.paid_at,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -572,7 +573,7 @@ def set_outcome(
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager, UserRole.complaints_handler])),
 ):
     complaint = _get_complaint(db, complaint_id)
-    outcome = service.record_outcome(db, complaint, payload.outcome, payload.notes, str(current_user.id))
+    outcome = service.record_outcome(db, complaint, payload.outcome, payload.rationale, payload.notes, str(current_user.id))
     db.commit()
     db.refresh(outcome)
     return outcome
@@ -692,6 +693,7 @@ async def add_communication(
     direction: CommunicationDirection = Form(...),
     summary: str = Form(...),
     is_final_response: bool = Form(False),
+    is_internal: bool = Form(False),
     occurred_at: datetime = Form(...),
     files: List[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
@@ -740,6 +742,7 @@ async def add_communication(
             summary=summary,
             occurred_at=occurred_at,
             is_final_response=is_final_response,
+            is_internal=is_internal,
             attachment_files=saved_files,
             user_id=str(current_user.id),
         )
@@ -924,6 +927,7 @@ def add_redress(
             action_description=payload.action_description,
             action_status=payload.action_status or ActionStatus.not_started,
             approved=payload.approved,
+            paid_at=payload.paid_at,
             user_id=str(current_user.id),
         )
     except ValueError as exc:

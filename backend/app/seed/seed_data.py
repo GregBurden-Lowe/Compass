@@ -70,7 +70,7 @@ def seed_complaints(db: Session, handler_id: str | None, reviewer_id: str | None
         service.assign_handler(db, recent, handler_id, reviewer_id)
     service.acknowledge(db, recent, handler_id)
     service.start_investigation(db, recent, handler_id)
-    service.record_outcome(db, recent, OutcomeType.partially_upheld, "Partial uphold due to delay.", reviewer_id)
+    service.record_outcome(db, recent, OutcomeType.partially_upheld, "Partial uphold due to delay.", None, reviewer_id)
     service.issue_final_response(db, recent, reviewer_id)
     service.add_redress_payment(
         db,

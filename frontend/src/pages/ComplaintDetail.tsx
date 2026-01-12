@@ -45,6 +45,7 @@ export default function ComplaintDetail() {
     summary: '',
     occurred_at: dayjs().format('YYYY-MM-DDTHH:mm'),
     is_final_response: false,
+    is_internal: false,
   })
   const [showFinalResponseConfirm, setShowFinalResponseConfirm] = useState(false)
   const [commFiles, setCommFiles] = useState<FileList | null>(null)
@@ -55,6 +56,7 @@ export default function ComplaintDetail() {
   const [showOutcomeModal, setShowOutcomeModal] = useState(false)
   const [outcomeForm, setOutcomeForm] = useState({
     outcome: 'upheld',
+    rationale: '',
     notes: '',
   })
   const [savingOutcome, setSavingOutcome] = useState(false)
@@ -65,20 +67,31 @@ export default function ComplaintDetail() {
   const [redressForm, setRedressForm] = useState({
     payment_type: 'financial_loss',
     amount: '',
-    status: 'pending',
     rationale: '',
     action_description: '',
     action_status: 'not_started',
     notes: '',
-    approved: false,
   })
   const [savingRedress, setSavingRedress] = useState(false)
   const [redressError, setRedressError] = useState<string | null>(null)
+
+  // Record payment date (post-add)
+  const [showPaidAtModal, setShowPaidAtModal] = useState(false)
+  const [paidAtRedressId, setPaidAtRedressId] = useState<string | null>(null)
+  const [paidAtDate, setPaidAtDate] = useState(dayjs().format('YYYY-MM-DD'))
+  const [savingPaidAt, setSavingPaidAt] = useState(false)
+  const [paidAtError, setPaidAtError] = useState<string | null>(null)
   // Close modal
   const [showCloseModal, setShowCloseModal] = useState(false)
   const [closeAction, setCloseAction] = useState<CloseAction | null>(null)
   const [closeDate, setCloseDate] = useState(dayjs().format('YYYY-MM-DDTHH:mm'))
   const [closing, setClosing] = useState(false)
+
+  // Reopen modal
+  const [showReopenModal, setShowReopenModal] = useState(false)
+  const [reopenReason, setReopenReason] = useState('')
+  const [reopenAt, setReopenAt] = useState(dayjs().format('YYYY-MM-DDTHH:mm'))
+  const [reopening, setReopening] = useState(false)
 
   // FOS referral modal
   const [showFosModal, setShowFosModal] = useState(false)
@@ -172,10 +185,12 @@ export default function ComplaintDetail() {
   const handleAddCommunication = async (opts?: { allowFinalWithoutAttachment?: boolean }) => {
     if (!id || !commForm.summary) return
 
+    const isFinalResponse = commForm.is_internal ? false : commForm.is_final_response
+
     // Guardrail: final response should generally have evidence (written response).
     // To avoid breaking workflows, we show a confirm modal instead of hard-blocking.
     if (
-      commForm.is_final_response &&
+      isFinalResponse &&
       (!commFiles || commFiles.length === 0) &&
       !opts?.allowFinalWithoutAttachment
     ) {
@@ -192,7 +207,8 @@ export default function ComplaintDetail() {
       formData.append('direction', commForm.direction)
       formData.append('summary', commForm.summary)
       formData.append('occurred_at', dayjs(commForm.occurred_at).toISOString())
-      formData.append('is_final_response', commForm.is_final_response.toString())
+      formData.append('is_final_response', isFinalResponse.toString())
+      formData.append('is_internal', commForm.is_internal.toString())
 
       if (commFiles) {
         Array.from(commFiles).forEach((file) => {
@@ -211,6 +227,7 @@ export default function ComplaintDetail() {
         summary: '',
         occurred_at: dayjs().format('YYYY-MM-DDTHH:mm'),
         is_final_response: false,
+        is_internal: false,
       })
       setCommFiles(null)
       loadComplaint()
@@ -286,11 +303,12 @@ export default function ComplaintDetail() {
 
     setSavingOutcome(true)
     setOutcomeError(null)
+    const trimmedRationale = (outcomeForm.rationale || '').trim()
     const trimmedNotes = (outcomeForm.notes || '').trim()
 
     // Guardrail: require rationale for key decision outcomes
     const outcomesRequiringNotes = new Set(['upheld', 'partially_upheld', 'not_upheld', 'out_of_scope'])
-    if (outcomesRequiringNotes.has(outcomeForm.outcome) && trimmedNotes.length < 10) {
+    if (outcomesRequiringNotes.has(outcomeForm.outcome) && trimmedRationale.length < 10) {
       setSavingOutcome(false)
       setOutcomeError('Please add a short rationale (at least 10 characters) for this outcome.')
       return
@@ -298,6 +316,7 @@ export default function ComplaintDetail() {
     try {
       await api.post(`/complaints/${id}/outcome`, {
         outcome: outcomeForm.outcome,
+        rationale: trimmedRationale || null,
         notes: trimmedNotes || null,
       })
       setShowOutcomeModal(false)
@@ -343,24 +362,22 @@ export default function ComplaintDetail() {
       await api.post(`/complaints/${id}/redress`, {
         payment_type: redressForm.payment_type,
         amount: amount !== null ? amount : null,
-        status: redressForm.status,
+        status: 'pending',
         rationale: rationale || null,
         action_description: redressForm.action_description || null,
         action_status: redressForm.action_status,
         notes: redressForm.notes || null,
-        approved: redressForm.approved,
+        approved: true,
         outcome_id: complaint?.outcome?.id || null,
       })
       setShowRedressModal(false)
       setRedressForm({
         payment_type: 'financial_loss',
         amount: '',
-        status: 'pending',
         rationale: '',
         action_description: '',
         action_status: 'not_started',
         notes: '',
-        approved: false,
       })
       loadComplaint()
     } catch (err: any) {
@@ -370,15 +387,42 @@ export default function ComplaintDetail() {
     }
   }
 
+  const openPaidAtModal = (redressId: string) => {
+    setPaidAtError(null)
+    setPaidAtRedressId(redressId)
+    setPaidAtDate(dayjs().format('YYYY-MM-DD'))
+    setShowPaidAtModal(true)
+  }
+
+  const handleSavePaidAt = async () => {
+    if (!id || !paidAtRedressId) return
+    setSavingPaidAt(true)
+    setPaidAtError(null)
+    try {
+      await api.patch(`/complaints/${id}/redress/${paidAtRedressId}`, {
+        paid_at: paidAtDate ? dayjs(paidAtDate).startOf('day').toISOString() : null,
+      })
+      setShowPaidAtModal(false)
+      setPaidAtRedressId(null)
+      loadComplaint()
+    } catch (err: any) {
+      setPaidAtError(err?.response?.data?.detail || 'Failed to record payment date')
+    } finally {
+      setSavingPaidAt(false)
+    }
+  }
+
   const openOutcomeModal = () => {
     if (complaint?.outcome) {
       setOutcomeForm({
         outcome: complaint.outcome.outcome,
+        rationale: complaint.outcome.rationale || '',
         notes: complaint.outcome.notes || '',
       })
     } else {
       setOutcomeForm({
         outcome: 'upheld',
+        rationale: '',
         notes: '',
       })
     }
@@ -405,6 +449,29 @@ export default function ComplaintDetail() {
       console.error('Failed to close complaint', err)
     } finally {
       setClosing(false)
+    }
+  }
+
+  const openReopenModal = () => {
+    setReopenReason('')
+    setReopenAt(dayjs().format('YYYY-MM-DDTHH:mm'))
+    setShowReopenModal(true)
+  }
+
+  const handleSubmitReopen = async () => {
+    if (!id) return
+    setReopening(true)
+    try {
+      await api.post(`/complaints/${id}/reopen`, {
+        reason: reopenReason?.trim() || null,
+        reopened_at: reopenAt ? dayjs(reopenAt).toISOString() : null,
+      })
+      setShowReopenModal(false)
+      loadComplaint()
+    } catch (err) {
+      console.error('Failed to reopen complaint', err)
+    } finally {
+      setReopening(false)
     }
   }
 
@@ -573,13 +640,23 @@ export default function ComplaintDetail() {
                         </Button>
                       )}
                       
-                      {complaint.status !== 'Closed' && (
+                      {!complaint.closed_at && (
                         <Button
                           variant="secondary"
                           size="sm"
                           onClick={() => openCloseModal('close-non-reportable')}
                         >
                           🚫 Close as Non-Reportable
+                        </Button>
+                      )}
+
+                      {complaint.closed_at && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={openReopenModal}
+                        >
+                          🔓 Reopen Complaint
                         </Button>
                       )}
                       
@@ -670,7 +747,7 @@ export default function ComplaintDetail() {
                       <div>
                         <label className="block text-xs font-medium text-text-primary mb-1">Case State</label>
                         <p className="text-sm font-semibold text-text-primary">
-                          {complaint.status === 'Closed' ? 'Closed' : 'Open'}
+                          {complaint.closed_at ? 'Closed' : 'Open'}
                         </p>
                       </div>
                       <StatusChip status={complaint.status} />
@@ -841,24 +918,32 @@ export default function ComplaintDetail() {
                       <CardBody>
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-app text-text-primary border border-border">
-                              {comm.channel}
-                            </span>
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
-                                String(comm.direction).toLowerCase() === 'inbound'
-                                  ? 'bg-semantic-info/10 text-semantic-info'
-                                  : 'bg-semantic-success/10 text-semantic-success'
-                              }`}
-                            >
-                              {String(comm.direction)
-                                .replace(/_/g, ' ')
-                                .replace(/^\w/, (c) => c.toUpperCase())}
-                            </span>
-                            {comm.is_final_response && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-warning/10 text-semantic-warning border border-semantic-warning/20">
-                                Final Response
+                            {comm.is_internal ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-info/10 text-semantic-info border border-semantic-info/20">
+                                Note / Decision
                               </span>
+                            ) : (
+                              <>
+                                <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-app text-text-primary border border-border">
+                                  {comm.channel}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
+                                    String(comm.direction).toLowerCase() === 'inbound'
+                                      ? 'bg-semantic-info/10 text-semantic-info'
+                                      : 'bg-semantic-success/10 text-semantic-success'
+                                  }`}
+                                >
+                                  {String(comm.direction)
+                                    .replace(/_/g, ' ')
+                                    .replace(/^\w/, (c) => c.toUpperCase())}
+                                </span>
+                                {comm.is_final_response && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-warning/10 text-semantic-warning border border-semantic-warning/20">
+                                    Final Response
+                                  </span>
+                                )}
+                              </>
                             )}
                           </div>
                           <span className="text-xs text-text-muted">
@@ -934,6 +1019,12 @@ export default function ComplaintDetail() {
                         {complaint.outcome.outcome.replace(/_/g, ' ')}
                       </p>
                     </div>
+                    {complaint.outcome.rationale && (
+                      <div>
+                        <label className="block text-xs font-medium text-text-primary mb-1">Rationale</label>
+                        <p className="text-sm text-text-secondary">{complaint.outcome.rationale}</p>
+                      </div>
+                    )}
                     {complaint.outcome.notes && (
                       <div>
                         <label className="block text-xs font-medium text-text-primary mb-1">Notes</label>
@@ -979,24 +1070,23 @@ export default function ComplaintDetail() {
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
-                                redress.status === 'paid'
-                                  ? 'bg-semantic-success/10 text-semantic-success'
-                                  : redress.status === 'authorised'
-                                  ? 'bg-semantic-warning/10 text-semantic-warning'
-                                  : 'bg-app text-text-primary border border-border'
-                              }`}
-                            >
-                              {redress.status.charAt(0).toUpperCase() + redress.status.slice(1)}
-                            </span>
-                            {redress.approved && (
+                            {redress.paid_at ? (
                               <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-success/10 text-semantic-success border border-semantic-success/20">
-                                <svg className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                                Approved
+                                💷 Paid {dayjs(redress.paid_at).format('MMM D, YYYY')}
                               </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-app text-text-secondary border border-border">
+                                Recorded
+                              </span>
+                            )}
+                            {user?.role !== 'read_only' && redress.amount && !redress.paid_at && (
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => openPaidAtModal(redress.id)}
+                              >
+                                Record payment date
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -1350,6 +1440,46 @@ export default function ComplaintDetail() {
         </ModalFooter>
       </Modal>
 
+      {/* Reopen Complaint Modal */}
+      <Modal open={showReopenModal} onClose={() => setShowReopenModal(false)}>
+        <ModalHeader onClose={() => setShowReopenModal(false)}>Reopen Complaint</ModalHeader>
+        <ModalBody>
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">
+              Reopening will remove the closure date and set the status back to an active state.
+            </p>
+            <div className="space-y-2">
+              <label htmlFor="reopen-date" className="block text-xs font-medium text-text-primary">
+                Reopen Date & Time *
+              </label>
+              <Input
+                id="reopen-date"
+                type="datetime-local"
+                value={reopenAt}
+                onChange={(e) => setReopenAt(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Reason (optional)</label>
+              <textarea
+                className="w-full min-h-[90px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={reopenReason}
+                onChange={(e) => setReopenReason(e.target.value)}
+                placeholder="Why is the complaint being reopened?"
+              />
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowReopenModal(false)} disabled={reopening}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleSubmitReopen} disabled={reopening || !reopenAt}>
+            {reopening ? 'Reopening...' : 'Reopen'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
       {/* Refer to FOS Modal */}
       <Modal open={showFosModal} onClose={() => setShowFosModal(false)}>
         <ModalHeader onClose={() => setShowFosModal(false)}>Refer to Ombudsman (FOS)</ModalHeader>
@@ -1427,12 +1557,25 @@ export default function ComplaintDetail() {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Notes</label>
+              <label className="block text-xs font-medium text-text-primary">Rationale</label>
               <textarea
                 className="w-full min-h-[100px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={outcomeForm.rationale}
+                onChange={(e) => setOutcomeForm({ ...outcomeForm, rationale: e.target.value })}
+                placeholder="Why was this outcome selected?"
+              />
+              <p className="text-xs text-text-muted">
+                This should capture the decision rationale for auditability.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Notes (optional)</label>
+              <textarea
+                className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                 value={outcomeForm.notes}
                 onChange={(e) => setOutcomeForm({ ...outcomeForm, notes: e.target.value })}
-                placeholder="Add outcome notes..."
+                placeholder="Any additional notes..."
               />
             </div>
           </div>
@@ -1490,20 +1633,6 @@ export default function ComplaintDetail() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="redress-status" className="block text-xs font-medium text-text-primary">Status *</label>
-              <select
-                id="redress-status"
-                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
-                value={redressForm.status}
-                onChange={(e) => setRedressForm({ ...redressForm, status: e.target.value })}
-              >
-                <option value="pending">Pending</option>
-                <option value="authorised">Authorised</option>
-                <option value="paid">Paid</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
               <label className="block text-xs font-medium text-text-primary">Rationale</label>
               <textarea
                 className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
@@ -1547,15 +1676,6 @@ export default function ComplaintDetail() {
               />
             </div>
 
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={redressForm.approved}
-                onChange={() => setRedressForm({ ...redressForm, approved: !redressForm.approved })}
-                className="h-4 w-4 rounded border-border text-brand focus:ring-2 focus:ring-brand/15"
-              />
-              <span className="text-sm font-medium text-text-primary">Approved</span>
-            </label>
           </div>
         </ModalBody>
         <ModalFooter>
@@ -1564,6 +1684,46 @@ export default function ComplaintDetail() {
           </Button>
           <Button variant="primary" onClick={handleAddRedress} disabled={savingRedress}>
             {savingRedress ? 'Adding...' : 'Add Redress'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Record Payment Date Modal */}
+      <Modal open={showPaidAtModal} onClose={() => setShowPaidAtModal(false)}>
+        <ModalHeader onClose={() => setShowPaidAtModal(false)}>Record Payment Date</ModalHeader>
+        <ModalBody>
+          {paidAtError && (
+            <div className="mb-4 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              {paidAtError}
+            </div>
+          )}
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">
+              Record the date the redress payment was made.
+            </p>
+            <div className="space-y-2">
+              <label htmlFor="paid-at-date" className="block text-xs font-medium text-text-primary">
+                Payment Date *
+              </label>
+              <Input
+                id="paid-at-date"
+                type="date"
+                value={paidAtDate}
+                onChange={(e) => setPaidAtDate(e.target.value)}
+              />
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowPaidAtModal(false)} disabled={savingPaidAt}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSavePaidAt}
+            disabled={savingPaidAt || !paidAtDate || !paidAtRedressId}
+          >
+            {savingPaidAt ? 'Saving...' : 'Save payment date'}
           </Button>
         </ModalFooter>
       </Modal>
@@ -1578,6 +1738,33 @@ export default function ComplaintDetail() {
             </div>
           )}
           <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="comm-type" className="block text-xs font-medium text-text-primary">Type *</label>
+              <select
+                id="comm-type"
+                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={commForm.is_internal ? 'note' : 'communication'}
+                onChange={(e) => {
+                  const nextIsInternal = e.target.value === 'note'
+                  setCommForm({
+                    ...commForm,
+                    is_internal: nextIsInternal,
+                    // sensible defaults for internal notes
+                    channel: nextIsInternal ? 'other' : commForm.channel,
+                    direction: nextIsInternal ? 'outbound' : commForm.direction,
+                    is_final_response: nextIsInternal ? false : commForm.is_final_response,
+                  })
+                }}
+              >
+                <option value="communication">Customer Communication</option>
+                <option value="note">Note / Decision (internal)</option>
+              </select>
+              {commForm.is_internal && (
+                <div className="rounded-lg border border-semantic-info/30 bg-semantic-info/5 p-3 text-sm text-semantic-info">
+                  This is an internal diary entry. It will not issue a final response and can be used for observations/decisions.
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label htmlFor="comm-channel" className="block text-xs font-medium text-text-primary">Channel *</label>
@@ -1586,6 +1773,7 @@ export default function ComplaintDetail() {
                   className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                   value={commForm.channel}
                   onChange={(e) => setCommForm({ ...commForm, channel: e.target.value })}
+                  disabled={commForm.is_internal}
                 >
                   <option value="email">Email</option>
                   <option value="phone">Phone</option>
@@ -1602,6 +1790,7 @@ export default function ComplaintDetail() {
                   className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                   value={commForm.direction}
                   onChange={(e) => setCommForm({ ...commForm, direction: e.target.value })}
+                  disabled={commForm.is_internal}
                 >
                   <option value="inbound">Inbound</option>
                   <option value="outbound">Outbound</option>
@@ -1639,21 +1828,25 @@ export default function ComplaintDetail() {
               />
             </div>
 
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={commForm.is_final_response}
-                onChange={() =>
-                  setCommForm({ ...commForm, is_final_response: !commForm.is_final_response })
-                }
-                className="h-4 w-4 rounded border-border text-brand focus:ring-2 focus:ring-brand/15"
-              />
-              <span className="text-sm font-medium text-text-primary">Mark as Final Response</span>
-            </label>
-            {commForm.is_final_response && (
-              <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/5 p-3 text-sm text-semantic-warning">
-                Final responses should normally have evidence attached (e.g., final response letter/email).
-              </div>
+            {!commForm.is_internal && (
+              <>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={commForm.is_final_response}
+                    onChange={() =>
+                      setCommForm({ ...commForm, is_final_response: !commForm.is_final_response })
+                    }
+                    className="h-4 w-4 rounded border-border text-brand focus:ring-2 focus:ring-brand/15"
+                  />
+                  <span className="text-sm font-medium text-text-primary">Mark as Final Response</span>
+                </label>
+                {commForm.is_final_response && (
+                  <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/5 p-3 text-sm text-semantic-warning">
+                    Final responses should normally have evidence attached (e.g., final response letter/email).
+                  </div>
+                )}
+              </>
             )}
           </div>
         </ModalBody>

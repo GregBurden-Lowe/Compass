@@ -15,6 +15,7 @@ class Communication(Base):
     occurred_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     is_final_response = Column(Boolean, nullable=False, server_default=func.false())
+    is_internal = Column(Boolean, nullable=False, server_default=func.false())
 
     complaint = relationship("Complaint", back_populates="communications")
     attachments = relationship("Attachment", back_populates="communication", cascade="all, delete-orphan")

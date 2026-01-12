@@ -40,7 +40,7 @@ def test_acknowledge_and_close_flow(db_session: Session):
     assert complaint.status == ComplaintStatus.acknowledged
     service.start_investigation(db_session, complaint, None)
     assert complaint.status == ComplaintStatus.in_investigation
-    service.record_outcome(db_session, complaint, OutcomeType.upheld, "ok", None)
+    service.record_outcome(db_session, complaint, OutcomeType.upheld, "ok", None, None)
     service.issue_final_response(db_session, complaint, None)
     service.close_complaint(db_session, complaint, None)
     assert complaint.status == ComplaintStatus.closed

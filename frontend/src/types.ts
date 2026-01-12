@@ -149,7 +149,9 @@ export interface CreateComplaintPayload {
 export interface Outcome {
   id: string
   outcome: string
+  rationale?: string
   notes?: string
+  recorded_at?: string
 }
 
 export interface RedressPayment {
@@ -162,6 +164,8 @@ export interface RedressPayment {
   action_status?: string
   approved?: boolean
   notes?: string
+  paid_at?: string
+  created_at?: string
 }
 
 export interface Communication {
@@ -173,6 +177,7 @@ export interface Communication {
   created_at: string
   attachments?: Attachment[]
   is_final_response?: boolean
+  is_internal?: boolean
 }
 
 export interface Attachment {
