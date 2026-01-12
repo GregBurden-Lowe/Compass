@@ -283,7 +283,7 @@ export default function Dashboard() {
               <div className="text-2xl font-semibold text-text-primary">
                 {loadingMetrics ? '—' : metrics?.risk.open_vulnerable.count || 0}
               </div>
-              {!loadingMetrics && metrics?.risk.open_vulnerable.pct_of_open !== null && (
+              {!loadingMetrics && metrics && metrics.risk.open_vulnerable.pct_of_open !== null && (
                 <div className="mt-1 text-xs text-text-muted">
                   {formatPercent(metrics.risk.open_vulnerable.pct_of_open)} of open
                 </div>
@@ -297,7 +297,7 @@ export default function Dashboard() {
               <div className="text-2xl font-semibold text-semantic-warning">
                 {loadingMetrics ? '—' : metrics?.risk.reopened.count || 0}
               </div>
-              {!loadingMetrics && metrics?.risk.reopened.pct_all_time !== null && (
+              {!loadingMetrics && metrics && metrics.risk.reopened.pct_all_time !== null && (
                 <div className="mt-1 text-xs text-text-muted">
                   {formatPercent(metrics.risk.reopened.pct_all_time)} of all time
                 </div>
