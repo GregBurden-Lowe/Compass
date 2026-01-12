@@ -25,6 +25,11 @@ export default function ComplaintDetail() {
     'all' | 'status' | 'communications' | 'decisions' | 'assignment'
   >('all')
   const [historyShowViewed, setHistoryShowViewed] = useState(false)
+
+  // Admin-only delete
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deletingComplaint, setDeletingComplaint] = useState(false)
   
   // Assignment state
   const [showAssignModal, setShowAssignModal] = useState(false)
@@ -433,6 +438,26 @@ export default function ComplaintDetail() {
     }
   }
 
+  const handleDeleteComplaint = async () => {
+    if (!id) return
+    if (user?.role !== 'admin') return
+
+    setDeletingComplaint(true)
+    try {
+      await api.delete(`/complaints/${id}`)
+      navigate('/complaints')
+    } catch (err: any) {
+      setUiMessage({
+        type: 'error',
+        text: err?.response?.data?.detail || 'Failed to delete complaint',
+      })
+    } finally {
+      setDeletingComplaint(false)
+      setShowDeleteModal(false)
+      setDeleteConfirmText('')
+    }
+  }
+
   return (
     <>
       <TopBar
@@ -440,6 +465,15 @@ export default function ComplaintDetail() {
         actions={
           <div className="flex items-center gap-3">
             <StatusChip status={complaint.status} />
+            {user?.role === 'admin' && (
+              <Button
+                variant="secondary"
+                onClick={() => setShowDeleteModal(true)}
+                className="border-semantic-error/40 text-semantic-error hover:bg-semantic-error/5"
+              >
+                Delete
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => navigate('/complaints')}>
               Back
             </Button>
@@ -1659,6 +1693,47 @@ export default function ComplaintDetail() {
           </Button>
           <Button variant="primary" onClick={handleConfirmFinalResponseWithoutAttachment} disabled={addingComm}>
             Continue anyway
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Admin: Delete Complaint */}
+      <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
+        <ModalHeader onClose={() => setShowDeleteModal(false)}>Delete Complaint</ModalHeader>
+        <ModalBody>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              This will permanently delete the complaint and all related records (including communications and attachments).
+            </div>
+            <p className="text-sm text-text-secondary">
+              To confirm, type the complaint reference:{' '}
+              <span className="font-semibold text-text-primary">{complaint.reference}</span>
+            </p>
+            <div className="space-y-2">
+              <label htmlFor="delete-confirm" className="block text-xs font-medium text-text-primary">
+                Type reference to confirm
+              </label>
+              <Input
+                id="delete-confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={complaint.reference}
+                autoFocus
+              />
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowDeleteModal(false)} disabled={deletingComplaint}>
+            Cancel
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={handleDeleteComplaint}
+            disabled={deletingComplaint || deleteConfirmText.trim() !== complaint.reference}
+            className="border-semantic-error/40 text-semantic-error hover:bg-semantic-error/5"
+          >
+            {deletingComplaint ? 'Deleting...' : 'Delete permanently'}
           </Button>
         </ModalFooter>
       </Modal>
