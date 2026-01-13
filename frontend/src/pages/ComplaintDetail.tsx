@@ -98,8 +98,6 @@ export default function ComplaintDetail() {
     amount: '',
     rationale: '',
     action_description: '',
-    action_status: 'not_started',
-    notes: '',
   })
   const [savingRedress, setSavingRedress] = useState(false)
   const [redressError, setRedressError] = useState<string | null>(null)
@@ -413,12 +411,8 @@ export default function ComplaintDetail() {
       await api.post(`/complaints/${id}/redress`, {
         payment_type: redressForm.payment_type,
         amount: amount !== null ? amount : null,
-        status: 'pending',
         rationale: rationale || null,
         action_description: redressForm.action_description || null,
-        action_status: redressForm.action_status,
-        notes: redressForm.notes || null,
-        approved: true,
         outcome_id: complaint?.outcome?.id || null,
       })
       setShowRedressModal(false)
@@ -427,8 +421,6 @@ export default function ComplaintDetail() {
         amount: '',
         rationale: '',
         action_description: '',
-        action_status: 'not_started',
-        notes: '',
       })
       loadComplaint()
     } catch (err: any) {
@@ -1264,29 +1256,10 @@ export default function ComplaintDetail() {
                             <label className="block text-xs font-medium text-text-primary mb-1">Action</label>
                             <div className="flex items-start justify-between">
                               <p className="text-sm text-text-secondary flex-1">{redress.action_description}</p>
-                              {redress.action_status && (
-                                <span
-                                  className={`ml-3 inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium capitalize ${
-                                    redress.action_status === 'completed'
-                                      ? 'bg-semantic-success/10 text-semantic-success'
-                                      : redress.action_status === 'in_progress'
-                                      ? 'bg-semantic-info/10 text-semantic-info'
-                                      : 'bg-app text-text-muted border border-border'
-                                  }`}
-                                >
-                                  {redress.action_status.replace(/_/g, ' ')}
-                                </span>
-                              )}
                             </div>
                           </div>
                         )}
 
-                        {redress.notes && (
-                          <div>
-                            <label className="block text-xs font-medium text-text-primary mb-1">Notes</label>
-                            <p className="text-sm text-text-secondary">{redress.notes}</p>
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -1810,30 +1783,6 @@ export default function ComplaintDetail() {
                 value={redressForm.action_description}
                 onChange={(e) => setRedressForm({ ...redressForm, action_description: e.target.value })}
                 placeholder="What action needs to be taken?"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="action-status" className="block text-xs font-medium text-text-primary">Action Status *</label>
-              <select
-                id="action-status"
-                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
-                value={redressForm.action_status}
-                onChange={(e) => setRedressForm({ ...redressForm, action_status: e.target.value })}
-              >
-                <option value="not_started">Not Started</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Notes</label>
-              <textarea
-                className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
-                value={redressForm.notes}
-                onChange={(e) => setRedressForm({ ...redressForm, notes: e.target.value })}
-                placeholder="Additional notes..."
               />
             </div>
 
