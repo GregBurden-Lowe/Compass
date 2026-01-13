@@ -114,6 +114,13 @@ export default function ComplaintDetail() {
   const [closeDate, setCloseDate] = useState(dayjs().format('YYYY-MM-DDTHH:mm'))
   const [closing, setClosing] = useState(false)
 
+  // Acknowledge email modal
+  const [showAcknowledgeModal, setShowAcknowledgeModal] = useState(false)
+  const [ackEmailTo, setAckEmailTo] = useState('')
+  const [ackEmailSubject, setAckEmailSubject] = useState('')
+  const [ackEmailBody, setAckEmailBody] = useState('')
+  const [ackModalBusy, setAckModalBusy] = useState(false)
+
   // Reopen modal
   const [showReopenModal, setShowReopenModal] = useState(false)
   const [reopenReason, setReopenReason] = useState('')
@@ -339,6 +346,79 @@ export default function ComplaintDetail() {
         type: 'error',
         text: err?.response?.data?.detail || `Failed to ${successMessage.toLowerCase()}`,
       })
+    }
+  }
+
+  const copyText = async (text: string, successText: string) => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        const ta = document.createElement('textarea')
+        ta.value = text
+        ta.style.position = 'fixed'
+        ta.style.left = '-9999px'
+        document.body.appendChild(ta)
+        ta.focus()
+        ta.select()
+        document.execCommand('copy')
+        ta.remove()
+      }
+      setUiMessage({ type: 'success', text: successText })
+    } catch {
+      setUiMessage({ type: 'error', text: 'Copy failed. Please copy manually.' })
+    }
+  }
+
+  const openAcknowledgeModal = () => {
+    const complainantName = complaint?.complainant?.full_name || 'Customer'
+    const to = complaint?.complainant?.email || ''
+    const handlerName = (user as any)?.full_name || (user as any)?.name || 'Complaints Team'
+    const ref = complaint?.reference || ''
+    const received = complaint?.received_at ? dayjs(complaint.received_at).format('D MMM YYYY') : ''
+    const ackDue = complaint?.ack_due_at ? dayjs(complaint.ack_due_at).format('D MMM YYYY') : ''
+    const finalDue = complaint?.final_due_at ? dayjs(complaint.final_due_at).format('D MMM YYYY') : ''
+
+    setAckEmailTo(to)
+    setAckEmailSubject(`Complaint acknowledgement — ${ref}`)
+    setAckEmailBody(
+      [
+        `Dear ${complainantName},`,
+        '',
+        `Thank you for your complaint received on ${received}.`,
+        '',
+        'We are sorry you have had cause to complain. We are reviewing your complaint and will keep you updated.',
+        '',
+        ackDue ? `We aim to acknowledge complaints within required timescales (due by ${ackDue}).` : '',
+        finalDue ? `We aim to provide our final response by ${finalDue}.` : '',
+        '',
+        `Reference: ${ref}`,
+        '',
+        `Kind regards,`,
+        handlerName,
+        '',
+      ]
+        .filter((l) => l !== '')
+        .join('\n')
+    )
+    setShowAcknowledgeModal(true)
+  }
+
+  const openMailClientWithAck = () => {
+    const to = (ackEmailTo || '').trim()
+    const subject = encodeURIComponent(ackEmailSubject || '')
+    const body = encodeURIComponent((ackEmailBody || '').replace(/\n/g, '\r\n'))
+    // mailto works best when Outlook (or another client) is the default mail handler.
+    window.location.href = `mailto:${encodeURIComponent(to)}?subject=${subject}&body=${body}`
+  }
+
+  const handleConfirmAcknowledge = async () => {
+    setAckModalBusy(true)
+    try {
+      await handleStatusChange('acknowledge', 'Complaint acknowledged')
+      setShowAcknowledgeModal(false)
+    } finally {
+      setAckModalBusy(false)
     }
   }
 
@@ -753,7 +833,7 @@ export default function ComplaintDetail() {
                         <Button
                           variant="primary"
                           size="sm"
-                          onClick={() => handleStatusChange('acknowledge', 'Complaint acknowledged')}
+                          onClick={openAcknowledgeModal}
                         >
                           ✅ Acknowledge
                         </Button>
@@ -1539,6 +1619,66 @@ export default function ComplaintDetail() {
             disabled={!selectedUserId || assigning}
           >
             {assigning ? 'Assigning...' : 'Assign'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Acknowledge Email Modal */}
+      <Modal open={showAcknowledgeModal} onClose={() => setShowAcknowledgeModal(false)}>
+        <ModalHeader onClose={() => setShowAcknowledgeModal(false)}>Acknowledge complaint</ModalHeader>
+        <ModalBody>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-border bg-app p-3 text-sm text-text-secondary">
+              Copy this template into Outlook, or use “Open email client” to prefill a draft (works best when Outlook is your default mail app).
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">To</label>
+              <Input value={ackEmailTo} onChange={(e) => setAckEmailTo(e.target.value)} placeholder="customer@email.com" />
+              {!complaint?.complainant?.email && (
+                <p className="text-xs text-text-muted">
+                  No email is stored for this complainant — add it in the complaint details if available.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="block text-xs font-medium text-text-primary">Subject</label>
+                <Button variant="secondary" size="sm" onClick={() => copyText(ackEmailSubject, 'Subject copied')}>
+                  Copy subject
+                </Button>
+              </div>
+              <Input value={ackEmailSubject} onChange={(e) => setAckEmailSubject(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="block text-xs font-medium text-text-primary">Body</label>
+                <Button variant="secondary" size="sm" onClick={() => copyText(ackEmailBody, 'Email body copied')}>
+                  Copy body
+                </Button>
+              </div>
+              <textarea
+                className="w-full min-h-[180px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={ackEmailBody}
+                onChange={(e) => setAckEmailBody(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={openMailClientWithAck} disabled={!ackEmailSubject && !ackEmailBody}>
+                Open email client
+              </Button>
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowAcknowledgeModal(false)} disabled={ackModalBusy}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleConfirmAcknowledge} disabled={ackModalBusy}>
+            {ackModalBusy ? 'Acknowledging...' : 'Mark acknowledged'}
           </Button>
         </ModalFooter>
       </Modal>
