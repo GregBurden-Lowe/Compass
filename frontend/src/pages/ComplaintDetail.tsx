@@ -344,6 +344,11 @@ export default function ComplaintDetail() {
     }
   }
 
+  const statusKey = (status: any) => {
+    if (!status) return ''
+    return String(status).trim().toLowerCase().replace(/\s+/g, '_').replace(/-+/g, '_')
+  }
+
   const handleSaveOutcome = async () => {
     if (!id) return
 
@@ -752,7 +757,7 @@ export default function ComplaintDetail() {
                   </CardHeader>
                   <CardBody>
                     <div className="flex flex-wrap gap-2 mt-4">
-                      {!complaint.acknowledged_at && (complaint.status === 'New' || complaint.status === 'Reopened') && (
+                      {!complaint.acknowledged_at && ['new', 'reopened'].includes(statusKey(complaint.status)) && (
                         <Button
                           variant="primary"
                           size="sm"
@@ -762,7 +767,7 @@ export default function ComplaintDetail() {
                         </Button>
                       )}
                       
-                      {(complaint.status === 'Acknowledged' || complaint.status === 'New' || complaint.status === 'Reopened') && (
+                      {['acknowledged', 'new', 'reopened'].includes(statusKey(complaint.status)) && (
                         <Button
                           variant="primary"
                           size="sm"
@@ -772,11 +777,11 @@ export default function ComplaintDetail() {
                         </Button>
                       )}
                       
-                      {complaint.status === 'In Investigation' && (
+                      {['in_investigation'].includes(statusKey(complaint.status)) && (
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => navigate(`/complaints/${id}`)}
+                          onClick={() => handleStatusChange('draft-response', 'Response drafted')}
                         >
                           📝 Draft Response
                         </Button>

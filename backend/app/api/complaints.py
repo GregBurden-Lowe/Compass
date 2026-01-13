@@ -699,6 +699,19 @@ def issue_final_response(
     return complaint
 
 
+@router.post("/{complaint_id}/draft-response", response_model=ComplaintOut)
+def draft_response(
+    complaint_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager, UserRole.complaints_handler])),
+):
+    complaint = _get_complaint(db, complaint_id)
+    service.draft_response(db, complaint, str(current_user.id))
+    db.commit()
+    db.refresh(complaint)
+    return complaint
+
+
 @router.post("/{complaint_id}/close", response_model=ComplaintOut)
 def close_complaint(
     complaint_id: str,

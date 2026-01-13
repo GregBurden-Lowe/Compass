@@ -142,9 +142,14 @@ def start_investigation(db: Session, complaint: Complaint, user_id: Optional[str
 
 
 def draft_response(db: Session, complaint: Complaint, user_id: Optional[str]) -> Complaint:
-    if complaint.status not in (ComplaintStatus.in_investigation, ComplaintStatus.response_drafted):
-        complaint.status = ComplaintStatus.response_drafted
-        add_event(db, complaint, "response_drafted", "Response drafted", user_id)
+    # Move to "response drafted" from the investigation stage.
+    # If already drafted, this is a no-op.
+    if complaint.status == ComplaintStatus.response_drafted:
+        return complaint
+    if complaint.status not in (ComplaintStatus.in_investigation, ComplaintStatus.acknowledged, ComplaintStatus.reopened):
+        return complaint
+    complaint.status = ComplaintStatus.response_drafted
+    add_event(db, complaint, "response_drafted", "Response drafted", user_id)
     return complaint
 
 
