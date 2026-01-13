@@ -69,6 +69,7 @@ export default function ComplaintDetail() {
   // Communication modal
   const [showCommModal, setShowCommModal] = useState(false)
   const [commForm, setCommForm] = useState({
+    kind: 'general',
     channel: 'email',
     direction: 'inbound',
     summary: '',
@@ -76,6 +77,7 @@ export default function ComplaintDetail() {
     is_final_response: false,
     is_internal: false,
   })
+  const [expandedComms, setExpandedComms] = useState<Record<string, boolean>>({})
   const [showFinalResponseConfirm, setShowFinalResponseConfirm] = useState(false)
   const [commFiles, setCommFiles] = useState<FileList | null>(null)
   const [addingComm, setAddingComm] = useState(false)
@@ -256,6 +258,7 @@ export default function ComplaintDetail() {
 
     try {
       const formData = new FormData()
+      formData.append('kind', commForm.kind)
       formData.append('channel', commForm.channel)
       formData.append('direction', commForm.direction)
       formData.append('summary', commForm.summary)
@@ -275,6 +278,7 @@ export default function ComplaintDetail() {
 
       setShowCommModal(false)
       setCommForm({
+        kind: 'general',
         channel: 'email',
         direction: 'inbound',
         summary: '',
@@ -439,6 +443,7 @@ export default function ComplaintDetail() {
 
       if (ackLogToComms) {
         const fd = new FormData()
+        fd.append('kind', 'acknowledgement')
         fd.append('channel', 'email')
         fd.append('direction', 'outbound')
         fd.append('summary', buildAckCommunicationSummary(ackEmailTo, ackEmailSubject, ackEmailBody))
@@ -1190,17 +1195,64 @@ export default function ComplaintDetail() {
               <div className="space-y-4">
                 {complaint.communications
                   .sort((a, b) => dayjs(b.occurred_at).valueOf() - dayjs(a.occurred_at).valueOf())
-                  .map((comm: Communication) => (
+                  .map((comm: Communication) => {
+                    const kindKey = (comm.kind || '').toLowerCase().trim()
+                    const inferredKind =
+                      kindKey ||
+                      (comm.is_internal
+                        ? 'note_decision'
+                        : comm.is_final_response
+                          ? 'final_response'
+                          : comm.summary?.startsWith('Acknowledgement email sent.')
+                            ? 'acknowledgement'
+                            : 'general')
+
+                    const kindLabel =
+                      inferredKind === 'acknowledgement'
+                        ? 'Acknowledgement'
+                        : inferredKind === 'final_response'
+                          ? 'Final Response'
+                          : inferredKind === 'note_decision'
+                            ? 'Note / Decision'
+                            : inferredKind === 'phone_call'
+                              ? 'Phone call'
+                              : inferredKind === 'letter'
+                                ? 'Letter'
+                                : 'General'
+
+                    const preview = (comm.summary || '').replace(/\s+/g, ' ').trim()
+                    const previewText = preview.length > 160 ? preview.slice(0, 160) + '…' : preview
+
+                    const kindChipClass =
+                      inferredKind === 'acknowledgement'
+                        ? 'bg-semantic-info/10 text-semantic-info border-semantic-info/20'
+                        : inferredKind === 'final_response'
+                          ? 'bg-semantic-warning/10 text-semantic-warning border-semantic-warning/20'
+                          : inferredKind === 'note_decision'
+                            ? 'bg-purple-100 text-purple-700 border-purple-200'
+                            : 'bg-app text-text-primary border-border'
+
+                    const isExpanded = !!expandedComms[comm.id]
+
+                    return (
                     <Card key={comm.id}>
                       <CardBody>
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            {comm.is_internal ? (
-                              <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-info/10 text-semantic-info border border-semantic-info/20">
-                                Note / Decision
-                              </span>
-                            ) : (
-                              <>
+                        <button
+                          type="button"
+                          className="w-full text-left"
+                          onClick={() =>
+                            setExpandedComms((prev) => ({
+                              ...prev,
+                              [comm.id]: !prev[comm.id],
+                            }))
+                          }
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium border ${kindChipClass}`}>
+                                  {kindLabel}
+                                </span>
                                 <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-app text-text-primary border border-border">
                                   {comm.channel}
                                 </span>
@@ -1215,40 +1267,50 @@ export default function ComplaintDetail() {
                                     .replace(/_/g, ' ')
                                     .replace(/^\w/, (c) => c.toUpperCase())}
                                 </span>
-                                {comm.is_final_response && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-semantic-warning/10 text-semantic-warning border border-semantic-warning/20">
-                                    Final Response
+                                {comm.attachments && comm.attachments.length > 0 && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-app text-text-muted border border-border">
+                                    {comm.attachments.length} attachment{comm.attachments.length === 1 ? '' : 's'}
                                   </span>
                                 )}
-                              </>
-                            )}
+                              </div>
+                              <p className="mt-2 text-sm text-text-secondary truncate">{previewText}</p>
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                              <span className="text-xs text-text-muted">
+                                {dayjs(comm.occurred_at).format('MMM D, YYYY h:mm A')}
+                              </span>
+                              <span className="text-xs text-text-muted">{isExpanded ? 'Collapse' : 'Expand'}</span>
+                            </div>
                           </div>
-                          <span className="text-xs text-text-muted">
-                            {dayjs(comm.occurred_at).format('MMM D, YYYY h:mm A')}
-                          </span>
-                        </div>
-                        <p className="text-sm text-text-primary mt-2">{comm.summary}</p>
-                        {comm.attachments && comm.attachments.length > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {comm.attachments.map((att) => (
-                              <a
-                                key={att.id}
-                                href={att.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-app text-text-primary hover:bg-border text-xs transition"
-                              >
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                </svg>
-                                {att.file_name}
-                              </a>
-                            ))}
+                        </button>
+
+                        {isExpanded && (
+                          <div className="mt-3 pt-3 border-t border-border">
+                            <div className="text-sm text-text-primary whitespace-pre-wrap">{comm.summary}</div>
+                            {comm.attachments && comm.attachments.length > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {comm.attachments.map((att) => (
+                                  <a
+                                    key={att.id}
+                                    href={att.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-app text-text-primary hover:bg-border text-xs transition"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                    </svg>
+                                    {att.file_name}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </CardBody>
                     </Card>
-                  ))}
+                  )})}
               </div>
             ) : (
               <div className="text-center py-12 rounded-lg border border-border bg-surface">
@@ -2060,7 +2122,7 @@ export default function ComplaintDetail() {
           )}
           <div className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="comm-type" className="block text-xs font-medium text-text-primary">Type *</label>
+              <label htmlFor="comm-type" className="block text-xs font-medium text-text-primary">Audience *</label>
               <select
                 id="comm-type"
                 className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
@@ -2070,6 +2132,7 @@ export default function ComplaintDetail() {
                   setCommForm({
                     ...commForm,
                     is_internal: nextIsInternal,
+                    kind: nextIsInternal ? 'note_decision' : commForm.kind === 'note_decision' ? 'general' : commForm.kind,
                     // sensible defaults for internal notes
                     channel: nextIsInternal ? 'other' : commForm.channel,
                     direction: nextIsInternal ? 'outbound' : commForm.direction,
@@ -2085,6 +2148,31 @@ export default function ComplaintDetail() {
                   This is an internal diary entry. It will not issue a final response and can be used for observations/decisions.
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="comm-kind" className="block text-xs font-medium text-text-primary">Tag</label>
+              <select
+                id="comm-kind"
+                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={commForm.is_internal ? 'note_decision' : commForm.kind}
+                onChange={(e) => {
+                  const nextKind = e.target.value
+                  setCommForm({
+                    ...commForm,
+                    kind: nextKind,
+                    is_final_response: nextKind === 'final_response' ? true : commForm.is_final_response,
+                  })
+                }}
+                disabled={commForm.is_internal}
+              >
+                <option value="general">General</option>
+                <option value="acknowledgement">Acknowledgement</option>
+                <option value="final_response">Final Response</option>
+                <option value="phone_call">Phone call</option>
+                <option value="letter">Letter</option>
+              </select>
+              <p className="text-xs text-text-muted">Helps keep the Communications tab scannable (shown as a chip).</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

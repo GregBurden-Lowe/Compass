@@ -808,6 +808,7 @@ def refer_to_fos(
 @router.post("/{complaint_id}/communications", response_model=CommunicationOut)
 async def add_communication(
     complaint_id: str,
+    kind: Optional[str] = Form(None),
     channel: CommunicationChannel = Form(...),
     direction: CommunicationDirection = Form(...),
     summary: str = Form(...),
@@ -856,6 +857,7 @@ async def add_communication(
         comm = service.add_communication_with_attachments(
             db,
             complaint=complaint,
+            kind=kind,
             channel=channel,
             direction=direction,
             summary=summary,

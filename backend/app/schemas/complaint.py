@@ -99,6 +99,7 @@ class ComplaintUpdate(BaseModel):
 
 
 class CommunicationBase(BaseModel):
+    kind: Optional[str] = None
     channel: CommunicationChannel
     direction: CommunicationDirection
     summary: str

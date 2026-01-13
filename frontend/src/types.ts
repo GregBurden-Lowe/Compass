@@ -171,6 +171,7 @@ export interface RedressPayment {
 
 export interface Communication {
   id: string
+  kind?: string | null
   channel: string
   direction: string
   summary: string

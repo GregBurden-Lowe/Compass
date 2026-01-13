@@ -11,6 +11,8 @@ class Communication(Base):
     user_id = Column(ForeignKey("user.id"), nullable=True)
     channel = Column(SqlEnum(CommunicationChannel), nullable=False)
     direction = Column(SqlEnum(CommunicationDirection), nullable=False)
+    # Optional classification to keep comms tidy (e.g. acknowledgement, final_response, note_decision)
+    kind = Column(String(32), nullable=True)
     summary = Column(String(1000), nullable=False)
     occurred_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
