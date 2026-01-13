@@ -46,6 +46,7 @@ from app.schemas.complaint import (
     RedressOut,
     ReopenRequest,
     EventOut,
+    AcknowledgeRequest,
     CloseRequest,
     EscalateRequest,
     ReferToFosRequest,
@@ -619,11 +620,12 @@ def download_timeline_pdf(
 @router.post("/{complaint_id}/acknowledge", response_model=ComplaintOut)
 def acknowledge_complaint(
     complaint_id: str,
+    payload: AcknowledgeRequest | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
 ):
     complaint = _get_complaint(db, complaint_id)
-    service.acknowledge(db, complaint, str(current_user.id))
+    service.acknowledge(db, complaint, str(current_user.id), acknowledged_at=payload.acknowledged_at if payload else None)
     db.commit()
     db.refresh(complaint)
     return complaint

@@ -214,6 +214,10 @@ class ReopenRequest(BaseModel):
     reopened_at: Optional[datetime] = None
 
 
+class AcknowledgeRequest(BaseModel):
+    acknowledged_at: Optional[datetime] = None
+
+
 class CloseRequest(BaseModel):
     closed_at: Optional[datetime] = None
     comment: Optional[str] = None

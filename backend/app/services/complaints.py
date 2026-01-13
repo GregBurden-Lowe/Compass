@@ -120,14 +120,22 @@ def refresh_breach_flags(complaint: Complaint) -> None:
     complaint.final_breached = bool(complaint.final_response_at is None and final_due and now > final_due)
 
 
-def acknowledge(db: Session, complaint: Complaint, user_id: Optional[str]) -> Complaint:
+def acknowledge(db: Session, complaint: Complaint, user_id: Optional[str], acknowledged_at: Optional[datetime] = None) -> Complaint:
     if complaint.status not in (ComplaintStatus.new, ComplaintStatus.reopened):
         return complaint
-    refresh_breach_flags(complaint)
-    if complaint.ack_breached:
+
+    sent_at = acknowledged_at or utcnow()
+    if sent_at.tzinfo is None:
+        sent_at = sent_at.replace(tzinfo=timezone.utc)
+    ack_due = complaint.ack_due_at
+    if ack_due and ack_due.tzinfo is None:
+        ack_due = ack_due.replace(tzinfo=timezone.utc)
+    # Determine breach based on when the acknowledgement was sent (not when the button was clicked).
+    if ack_due and sent_at > ack_due:
         add_event(db, complaint, "ack_sla_breached", "Acknowledgement SLA breached (sent late)", user_id)
+
     complaint.status = ComplaintStatus.acknowledged
-    complaint.acknowledged_at = utcnow()
+    complaint.acknowledged_at = sent_at
     complaint.ack_breached = False
     add_event(db, complaint, "acknowledged", "Acknowledgement sent", user_id)
     return complaint

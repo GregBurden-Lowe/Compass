@@ -119,6 +119,7 @@ export default function ComplaintDetail() {
   const [ackEmailTo, setAckEmailTo] = useState('')
   const [ackEmailSubject, setAckEmailSubject] = useState('')
   const [ackEmailBody, setAckEmailBody] = useState('')
+  const [ackSentAt, setAckSentAt] = useState(dayjs().format('YYYY-MM-DDTHH:mm'))
   const [ackModalBusy, setAckModalBusy] = useState(false)
 
   // Reopen modal
@@ -381,6 +382,7 @@ export default function ComplaintDetail() {
 
     setAckEmailTo(to)
     setAckEmailSubject(`Complaint acknowledgement — ${ref}`)
+    setAckSentAt(dayjs().format('YYYY-MM-DDTHH:mm'))
     setAckEmailBody(
       [
         `Dear ${complainantName},`,
@@ -415,8 +417,17 @@ export default function ComplaintDetail() {
   const handleConfirmAcknowledge = async () => {
     setAckModalBusy(true)
     try {
-      await handleStatusChange('acknowledge', 'Complaint acknowledged')
+      await api.post(`/complaints/${id}/acknowledge`, {
+        acknowledged_at: ackSentAt ? dayjs(ackSentAt).toISOString() : null,
+      })
+      setUiMessage({ type: 'success', text: 'Complaint acknowledged' })
+      loadComplaint()
       setShowAcknowledgeModal(false)
+    } catch (err: any) {
+      setUiMessage({
+        type: 'error',
+        text: err?.response?.data?.detail || 'Failed to acknowledge complaint',
+      })
     } finally {
       setAckModalBusy(false)
     }
@@ -1640,6 +1651,19 @@ export default function ComplaintDetail() {
                   No email is stored for this complainant — add it in the complaint details if available.
                 </p>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="ack-sent-at" className="block text-xs font-medium text-text-primary">
+                Email sent at *
+              </label>
+              <Input
+                id="ack-sent-at"
+                type="datetime-local"
+                value={ackSentAt}
+                onChange={(e) => setAckSentAt(e.target.value)}
+              />
+              <p className="text-xs text-text-muted">This timestamp will be stored as the acknowledgement time for SLA purposes.</p>
             </div>
 
             <div className="space-y-2">
