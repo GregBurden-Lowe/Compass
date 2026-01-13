@@ -120,6 +120,7 @@ export default function ComplaintDetail() {
   const [ackEmailSubject, setAckEmailSubject] = useState('')
   const [ackEmailBody, setAckEmailBody] = useState('')
   const [ackSentAt, setAckSentAt] = useState(dayjs().format('YYYY-MM-DDTHH:mm'))
+  const [ackLogToComms, setAckLogToComms] = useState(true)
   const [ackModalBusy, setAckModalBusy] = useState(false)
 
   // Reopen modal
@@ -383,6 +384,7 @@ export default function ComplaintDetail() {
     setAckEmailTo(to)
     setAckEmailSubject(`Complaint acknowledgement — ${ref}`)
     setAckSentAt(dayjs().format('YYYY-MM-DDTHH:mm'))
+    setAckLogToComms(true)
     setAckEmailBody(
       [
         `Dear ${complainantName},`,
@@ -406,6 +408,21 @@ export default function ComplaintDetail() {
     setShowAcknowledgeModal(true)
   }
 
+  const buildAckCommunicationSummary = (to: string, subject: string, body: string) => {
+    // Backend `Communication.summary` is capped at 1000 chars; keep this safe + readable.
+    const header = [
+      'Acknowledgement email sent.',
+      to ? `To: ${to}` : null,
+      subject ? `Subject: ${subject}` : null,
+      '',
+      body ? body : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
+    if (header.length <= 1000) return header
+    return header.slice(0, 980) + '\n…(truncated)'
+  }
+
   const openMailClientWithAck = () => {
     const to = (ackEmailTo || '').trim()
     const subject = encodeURIComponent(ackEmailSubject || '')
@@ -417,16 +434,36 @@ export default function ComplaintDetail() {
   const handleConfirmAcknowledge = async () => {
     setAckModalBusy(true)
     try {
-      await api.post(`/complaints/${id}/acknowledge`, {
-        acknowledged_at: ackSentAt ? dayjs(ackSentAt).toISOString() : null,
+      const acknowledgedAtIso = ackSentAt ? dayjs(ackSentAt).toISOString() : null
+      await api.post(`/complaints/${id}/acknowledge`, { acknowledged_at: acknowledgedAtIso })
+
+      if (ackLogToComms) {
+        const fd = new FormData()
+        fd.append('channel', 'email')
+        fd.append('direction', 'outbound')
+        fd.append('summary', buildAckCommunicationSummary(ackEmailTo, ackEmailSubject, ackEmailBody))
+        fd.append('occurred_at', acknowledgedAtIso || dayjs().toISOString())
+        fd.append('is_final_response', 'false')
+        fd.append('is_internal', 'false')
+        await api.post(`/complaints/${id}/communications`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+      }
+
+      setUiMessage({
+        type: 'success',
+        text: ackLogToComms ? 'Complaint acknowledged and logged in Communications' : 'Complaint acknowledged',
       })
-      setUiMessage({ type: 'success', text: 'Complaint acknowledged' })
       loadComplaint()
       setShowAcknowledgeModal(false)
     } catch (err: any) {
       setUiMessage({
         type: 'error',
-        text: err?.response?.data?.detail || 'Failed to acknowledge complaint',
+        text:
+          err?.response?.data?.detail ||
+          (ackLogToComms
+            ? 'Failed to acknowledge and/or log the communication'
+            : 'Failed to acknowledge complaint'),
       })
     } finally {
       setAckModalBusy(false)
@@ -1665,6 +1702,16 @@ export default function ComplaintDetail() {
               />
               <p className="text-xs text-text-muted">This timestamp will be stored as the acknowledgement time for SLA purposes.</p>
             </div>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ackLogToComms}
+                onChange={(e) => setAckLogToComms(e.target.checked)}
+                className="h-4 w-4 rounded border-border text-brand focus:ring-2 focus:ring-brand/15"
+              />
+              <span className="text-sm text-text-primary">Log this email in Communications</span>
+            </label>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
