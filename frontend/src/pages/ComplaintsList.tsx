@@ -18,6 +18,7 @@ export default function ComplaintsList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  // Use backend enum values in queries (e.g. "in_investigation"), keep "all" as a UI sentinel.
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [handlerFilter, setHandlerFilter] = useState<string>('all')
   const [overdueFilter, setOverdueFilter] = useState(false)
@@ -258,12 +259,14 @@ export default function ComplaintsList() {
                   className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand"
                 >
                   <option value="all">All Statuses</option>
-                  <option value="New">New</option>
-                  <option value="Acknowledged">Acknowledged</option>
-                  <option value="In Investigation">In Investigation</option>
-                  <option value="Response Drafted">Response Drafted</option>
-                  <option value="Final Response Issued">Final Response Issued</option>
-                  <option value="Closed">Closed</option>
+                  {/* Use backend enum values for filtering; label remains human-readable */}
+                  <option value="new">New</option>
+                  <option value="acknowledged">Acknowledged</option>
+                  <option value="in_investigation">In Investigation</option>
+                  <option value="response_drafted">Response Drafted</option>
+                  <option value="final_response_issued">Final Response Issued</option>
+                  <option value="reopened">Reopened</option>
+                  <option value="closed">Closed</option>
                 </select>
               </div>
 

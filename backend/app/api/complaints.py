@@ -119,7 +119,9 @@ def list_complaints(
     query = db.query(Complaint).options(joinedload(Complaint.communications).joinedload(Communication.attachments))
     if status_filter:
         try:
-            status_enum = ComplaintStatus(status_filter.lower())
+            # Accept either canonical enum values (e.g. "in_investigation") or UI labels (e.g. "In Investigation")
+            normalized = status_filter.strip().lower().replace(" ", "_").replace("-", "_")
+            status_enum = ComplaintStatus(normalized)
             query = query.filter(Complaint.status == status_enum)
         except ValueError:
             pass
