@@ -74,7 +74,7 @@ export default function Profile() {
 
     setLoading(true)
     try {
-      await api.post('/auth/change-password', {
+      await api.post('/auth/password/change', {
         current_password: currentPassword,
         new_password: newPassword,
       })

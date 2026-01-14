@@ -113,6 +113,16 @@ def change_password(
     return {"status": "ok"}
 
 
+# Backwards-compatible alias (older frontend used /auth/change-password)
+@router.post("/change-password")
+def change_password_alias(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return change_password(payload, db, current_user)
+
+
 @router.get("/mfa/status")
 def mfa_status(current_user: User = Depends(get_current_user)):
     return {"mfa_enabled": current_user.mfa_enabled}
