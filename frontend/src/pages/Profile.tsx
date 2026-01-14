@@ -8,7 +8,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import dayjs from 'dayjs'
 
 export default function Profile() {
-  const { user } = useAuth()
+  const { user, refreshMe } = useAuth()
   const location = useLocation()
   const forced = (location.state as any)?.forced
   
@@ -78,6 +78,8 @@ export default function Profile() {
         current_password: currentPassword,
         new_password: newPassword,
       })
+      // Immediately refresh auth state so must-change-password gate clears without logout/login.
+      await refreshMe()
       setMessage({ type: 'success', text: 'Password changed successfully' })
       setCurrentPassword('')
       setNewPassword('')

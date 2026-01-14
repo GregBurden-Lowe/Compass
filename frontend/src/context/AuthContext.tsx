@@ -93,6 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       role: validatedRole,
       name: me.data.full_name,
       userId: me.data.id,
+      user: me.data,
       mustChangePassword: !!me.data.must_change_password,
       ready: true,
     })
