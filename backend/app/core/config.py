@@ -31,14 +31,14 @@ class Settings(BaseSettings):
 
     enable_api_docs: bool = Field(False, env="ENABLE_API_DOCS")
 
-    # FCA DISP compliance feature flags (all default OFF)
-    require_final_response_evidence: bool = Field(False, env="REQUIRE_FINAL_RESPONSE_EVIDENCE")
-    require_d1_checklist: bool = Field(False, env="REQUIRE_D1_CHECKLIST")
-    require_outbound_before_close: bool = Field(False, env="REQUIRE_OUTBOUND_BEFORE_CLOSE")
+    # FCA DISP compliance feature flags (recommended set default ON; override with env to disable)
+    require_final_response_evidence: bool = Field(True, env="REQUIRE_FINAL_RESPONSE_EVIDENCE")
+    require_d1_checklist: bool = Field(True, env="REQUIRE_D1_CHECKLIST")
+    require_outbound_before_close: bool = Field(True, env="REQUIRE_OUTBOUND_BEFORE_CLOSE")
     enable_deadline_notifications: bool = Field(False, env="ENABLE_DEADLINE_NOTIFICATIONS")
     enable_support_needs: bool = Field(False, env="ENABLE_SUPPORT_NEEDS")
-    enable_delay_response_kind: bool = Field(False, env="ENABLE_DELAY_RESPONSE_KIND")
-    enable_broker_referral: bool = Field(False, env="ENABLE_BROKER_REFERRAL")
+    enable_delay_response_kind: bool = Field(True, env="ENABLE_DELAY_RESPONSE_KIND")
+    enable_broker_referral: bool = Field(True, env="ENABLE_BROKER_REFERRAL")
     enable_attachment_hashing: bool = Field(False, env="ENABLE_ATTACHMENT_HASHING")
     restrict_vulnerability_notes: bool = Field(False, env="RESTRICT_VULNERABILITY_NOTES")
 
