@@ -8,6 +8,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import logging
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.router import api_router
@@ -119,6 +120,38 @@ def create_app() -> FastAPI:
     
     app.mount("/attachments", StaticFiles(directory="storage/attachments"), name="attachments")
     app.include_router(api_router)
+
+    @app.on_event("startup")
+    def _check_schema():
+        """Fail fast if DB is missing migration 0017 (e.g. app and migrations use different DBs)."""
+        try:
+            db = SessionLocal()
+            try:
+                r = db.execute(
+                    text(
+                        "SELECT 1 FROM information_schema.columns "
+                        "WHERE table_schema = 'public' AND table_name = 'complaint' AND column_name = 'legal_hold'"
+                    )
+                )
+                if r.scalar() is None:
+                    url = settings.database_url
+                    redacted = "***"
+                    if url and "@" in url:
+                        try:
+                            redacted = url.split("@")[1].split("?")[0] + " (password redacted)"
+                        except Exception:
+                            pass
+                    raise RuntimeError(
+                        "Database schema is outdated: column complaint.legal_hold is missing. "
+                        "Run migrations against the same database this app uses: "
+                        "alembic upgrade head (ensure DATABASE_URL points to this database: " + redacted + ")."
+                    )
+            finally:
+                db.close()
+        except RuntimeError:
+            raise
+        except SQLAlchemyError as e:
+            logger.warning("Schema check skipped (DB unreachable at startup): %s", e)
 
     @app.get("/health")
     async def health():

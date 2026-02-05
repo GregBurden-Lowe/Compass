@@ -32,7 +32,7 @@ class ComplainantOut(ComplainantBase):
     id: UUID
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class PolicyBase(BaseModel):
@@ -51,7 +51,7 @@ class PolicyOut(PolicyBase):
     id: UUID
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ComplaintBase(BaseModel):
@@ -119,7 +119,7 @@ class AttachmentOut(BaseModel):
     url: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class CommunicationOut(CommunicationBase):
@@ -131,7 +131,7 @@ class CommunicationOut(CommunicationBase):
     confirmed_in_attachment: bool = False
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class TaskBase(BaseModel):
@@ -152,7 +152,7 @@ class TaskOut(TaskBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class OutcomeCreate(BaseModel):
@@ -169,7 +169,7 @@ class OutcomeOut(BaseModel):
     recorded_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class RedressCreate(BaseModel):
@@ -210,7 +210,7 @@ class RedressOut(BaseModel):
     paid_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ReopenRequest(BaseModel):
@@ -278,7 +278,7 @@ class ComplaintOut(BaseModel):
     redress_payments: List[RedressOut] = Field(default_factory=list)
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class EventOut(BaseModel):
@@ -290,7 +290,7 @@ class EventOut(BaseModel):
     created_by_name: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class FinalResponseRequest(BaseModel):
@@ -320,5 +320,5 @@ class BrokerReferralOut(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
