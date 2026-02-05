@@ -1858,12 +1858,14 @@ export default function ComplaintDetail() {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <label className="block text-xs font-medium text-text-primary">Body</label>
+                <label htmlFor="ack-email-body" className="block text-xs font-medium text-text-primary">Body</label>
                 <Button variant="secondary" size="sm" onClick={() => copyText(ackEmailBody, 'Email body copied')}>
                   Copy body
                 </Button>
               </div>
               <textarea
+                id="ack-email-body"
+                aria-label="Acknowledgement email body"
                 className="w-full min-h-[180px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
                 value={ackEmailBody}
                 onChange={(e) => setAckEmailBody(e.target.value)}

@@ -59,6 +59,8 @@ export type ComplaintStatus =
   | 'In Investigation'
   | 'Response Drafted'
   | 'Final Response Issued'
+  | 'Awaiting Customer'
+  | 'Escalated'
   | 'Closed'
   | 'Reopened'
 
