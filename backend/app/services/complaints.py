@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from typing import Iterable, Optional
+from datetime import datetime, timezone, timedelta
+from typing import Iterable, Optional, List, Any
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func, select, text
@@ -11,8 +11,10 @@ from app.models.policy import Policy
 from app.models.communication import Communication
 from app.models.attachment import Attachment
 from app.models.event import ComplaintEvent
+from app.models.audit import AuditLog
 from app.models.outcome import Outcome
 from app.models.redress import RedressPayment
+from app.models.broker_referral import BrokerReferral
 from app.models.enums import (
     ComplaintStatus,
     OutcomeType,
@@ -26,6 +28,91 @@ from app.models.enums import (
 from app.models.user import User
 from app.utils.dates import add_business_days, add_weeks, utcnow
 from app.core.config import get_settings
+
+# D1 checklist keys required when REQUIRE_D1_CHECKLIST is on
+D1_REQUIRED_KEYS = [
+    "decision_outcome",
+    "reasons",
+    "redress_summary",
+    "fos_right_to_refer",
+    "fos_6_months",
+    "fos_website",
+    "leaflet_statement",
+    "waiver_statement",
+]
+
+
+def audit_change(
+    db: Session,
+    complaint_id: Optional[str],
+    entity: str,
+    field: str,
+    old_value: Any,
+    new_value: Any,
+    user_id: Optional[str] = None,
+) -> None:
+    """Write a single field change to AuditLog. Values stringified; truncate to 2000."""
+    def _str(v: Any) -> Optional[str]:
+        if v is None:
+            return None
+        s = str(v)
+        return s[:2000] if len(s) > 2000 else s
+    row = AuditLog(
+        complaint_id=complaint_id,
+        entity=entity,
+        field=field,
+        old_value=_str(old_value),
+        new_value=_str(new_value),
+        changed_by_id=user_id,
+    )
+    db.add(row)
+
+
+def validate_d1_checklist(
+    d1_checklist_confirmed: Optional[List[str]],
+    confirmed_in_attachment: bool,
+    attachment_count: int,
+    require_d1: bool,
+) -> None:
+    """When require_d1 is True, raise ValueError if D1 not satisfied."""
+    if not require_d1:
+        return
+    if confirmed_in_attachment and attachment_count >= 1:
+        return
+    if d1_checklist_confirmed is not None and set(d1_checklist_confirmed) >= set(D1_REQUIRED_KEYS):
+        return
+    raise ValueError(
+        "When D1 checklist is required: either confirm all D1 blocks in the checklist, "
+        "or select 'confirmed in attachment' and attach at least one file."
+    )
+
+
+def get_d1_template_body(settings: Any) -> str:
+    """Default final response body template with placeholders (FCA D1)."""
+    waiver = getattr(settings, "waiver_statement_text", None) or "[Waiver statement - set WAIVER_STATEMENT_TEXT]"
+    website = getattr(settings, "d1_fos_website_url", None) or "https://www.financial-ombudsman.org.uk"
+    return (
+        "Decision: {decision_outcome}\nReasons: {reasons}\n\n"
+        "Redress: {redress_summary}\n\n"
+        "You have the right to refer this complaint to the Financial Ombudsman Service (FOS) within 6 months of the date of this letter.\n"
+        f"FOS website: {website}\n"
+        "Leaflet: We have enclosed / made available the FOS leaflet.\n"
+        f"Waiver: {waiver}"
+    )
+
+
+def get_delay_response_template(settings: Any) -> str:
+    """Template for 8-week delay response (DISP 1.6.2R(2))."""
+    website = getattr(settings, "d1_fos_website_url", None) or "https://www.financial-ombudsman.org.uk"
+    waiver = getattr(settings, "waiver_statement_text", None) or "[Waiver statement - set WAIVER_STATEMENT_TEXT]"
+    return (
+        "We are still investigating your complaint and have not yet been able to send our final response. "
+        "We will send our final response by [DATE]. "
+        "You may refer your complaint to the Financial Ombudsman Service now if you wish. "
+        f"Website: {website}. "
+        "We have enclosed / made available the FOS leaflet. "
+        f"Waiver: {waiver}"
+    )
 
 
 def generate_reference(db: Session) -> str:
@@ -200,6 +287,90 @@ def issue_final_response(db: Session, complaint: Complaint, user_id: Optional[st
     return complaint
 
 
+def issue_final_response_with_communication(
+    db: Session,
+    complaint: Complaint,
+    user_id: Optional[str],
+    *,
+    communication: Optional[Communication] = None,
+    summary: Optional[str] = None,
+    body: Optional[str] = None,
+    confirmed_sent_externally: bool = False,
+    external_send_reason: Optional[str] = None,
+    attachment_count: int = 0,
+    d1_checklist_confirmed: Optional[List[str]] = None,
+    confirmed_in_attachment: bool = False,
+) -> Complaint:
+    """
+    Ensure a Communication record exists for the final response, then issue it.
+    When communication is None (POST /final-response): creates a stub Communication.
+    When REQUIRE_FINAL_RESPONSE_EVIDENCE: requires attachment_count>=1 or (confirmed_sent_externally and reason len>=20).
+    When REQUIRE_D1_CHECKLIST: requires D1 checklist complete or confirmed_in_attachment + attachment.
+    """
+    settings = get_settings()
+    require_evidence = getattr(settings, "require_final_response_evidence", False)
+    require_d1 = getattr(settings, "require_d1_checklist", False)
+
+    if communication is None:
+        if require_evidence:
+            if attachment_count >= 1:
+                pass
+            elif confirmed_sent_externally and (external_send_reason or "").strip() and len((external_send_reason or "").strip()) >= 20:
+                pass
+            else:
+                raise ValueError(
+                    "Evidence required: attach at least one file, or set confirmed_sent_externally=true "
+                    "with external_send_reason (min 20 characters)."
+                )
+        if require_d1:
+            validate_d1_checklist(d1_checklist_confirmed, confirmed_in_attachment, attachment_count, require_d1=True)
+
+        stub_summary = summary or "Final response issued via status action. Evidence stored in attachments or external send."
+        # Persist confirmed_sent_externally / external_send_reason in body for audit (no separate DB columns)
+        body_to_store = body
+        if confirmed_sent_externally and (external_send_reason or "").strip():
+            evidence_text = "Evidence: sent externally.\nReason: " + (external_send_reason or "").strip()
+            body_to_store = (body + "\n\n" + evidence_text) if body else evidence_text
+        add_communication_with_attachments(
+            db,
+            complaint=complaint,
+            kind="final_response",
+            channel=CommunicationChannel.other,
+            direction=CommunicationDirection.outbound,
+            summary=stub_summary,
+            body=body_to_store,
+            occurred_at=utcnow(),
+            is_final_response=True,
+            is_internal=False,
+            attachment_files=None,
+            user_id=user_id,
+            d1_checklist_confirmed=d1_checklist_confirmed,
+            confirmed_in_attachment=confirmed_in_attachment,
+        )
+    else:
+        if require_d1:
+            att_count = len(communication.attachments) if communication.attachments else 0
+            validate_d1_checklist(
+                getattr(communication, "d1_checklist_confirmed", None),
+                getattr(communication, "confirmed_in_attachment", False),
+                att_count,
+                require_d1=True,
+            )
+    return issue_final_response(db, complaint, user_id)
+
+
+def _has_outbound_comm(complaint: Complaint) -> bool:
+    """True if complaint has at least one outbound communication or acknowledgement or delay response or final response."""
+    for c in complaint.communications or []:
+        if getattr(c, "deleted_at", None):
+            continue
+        if c.direction == CommunicationDirection.outbound:
+            return True
+        if c.kind in ("acknowledgement", "delay_response_8week") or c.is_final_response:
+            return True
+    return bool(complaint.acknowledged_at)
+
+
 def close_complaint(
     db: Session,
     complaint: Complaint,
@@ -212,8 +383,15 @@ def close_complaint(
         raise ValueError("Outcome required before closing complaint")
     if not complaint.final_response_at:
         raise ValueError("Final response required before closing complaint")
+    settings = get_settings()
+    if getattr(settings, "require_outbound_before_close", False) and not _has_outbound_comm(complaint):
+        raise ValueError("At least one outbound communication (or acknowledgement / delay / final response) must be logged before closing.")
     complaint.status = ComplaintStatus.closed
-    complaint.closed_at = closed_at or utcnow()
+    closed = closed_at or utcnow()
+    complaint.closed_at = closed
+    if not getattr(complaint, "legal_hold", False):
+        retention_years = 6
+        complaint.retention_until = closed + timedelta(days=365 * retention_years)
     desc = "Complaint closed"
     if comment:
         desc = f"{desc} — {comment}"
@@ -318,38 +496,110 @@ def add_communication_with_attachments(
     is_internal: bool = False,
     attachment_files: Iterable[dict] | None = None,
     user_id: Optional[str] = None,
+    body: Optional[str] = None,
+    d1_checklist_confirmed: Optional[List[str]] = None,
+    confirmed_in_attachment: bool = False,
 ) -> Communication:
-    # Convert string to enum if needed
+    settings = get_settings()
+    require_d1 = getattr(settings, "require_d1_checklist", False)
+    if is_final_response and require_d1:
+        att_list = list(attachment_files or [])
+        validate_d1_checklist(d1_checklist_confirmed, confirmed_in_attachment, len(att_list), require_d1=True)
+
     if isinstance(channel, str):
         channel = CommunicationChannel(channel)
     if isinstance(direction, str):
         direction = CommunicationDirection(direction)
-    
+
     comm = Communication(
         complaint_id=complaint.id,
         channel=channel,
         direction=direction,
         kind=kind,
         summary=summary,
+        body=body,
         occurred_at=occurred_at,
         user_id=user_id,
         is_final_response=is_final_response,
         is_internal=is_internal,
+        d1_checklist_confirmed=d1_checklist_confirmed,
+        confirmed_in_attachment=confirmed_in_attachment,
     )
     db.add(comm)
     db.flush()
-    attachments = []
     for meta in attachment_files or []:
         attachment = Attachment(
             communication_id=comm.id,
             file_name=meta["file_name"],
             content_type=meta["content_type"],
             storage_path=meta["storage_path"],
+            sha256=meta.get("sha256"),
+            size_bytes=meta.get("size_bytes"),
         )
-        attachments.append(attachment)
         db.add(attachment)
     add_event(db, complaint, "note_added" if is_internal else "communication_added", summary[:240], user_id)
     return comm
+
+
+def soft_delete_attachment(
+    db: Session,
+    attachment: Attachment,
+    user_id: Optional[str],
+    delete_reason: Optional[str] = None,
+) -> None:
+    """Soft delete: set deleted_at, deleted_by_id, delete_reason; write AuditLog + ComplaintEvent. Do not remove file."""
+    complaint = attachment.communication.complaint if attachment.communication else None
+    old_meta = f"file_name={attachment.file_name}, sha256={attachment.sha256 or 'n/a'}"
+    attachment.deleted_at = utcnow()
+    attachment.deleted_by_id = user_id
+    attachment.delete_reason = (delete_reason or "")[:500]
+    audit_change(
+        db,
+        complaint.id if complaint else None,
+        "attachment",
+        "deleted",
+        old_meta,
+        f"deleted_at={attachment.deleted_at}; reason={attachment.delete_reason}",
+        user_id,
+    )
+    if complaint:
+        add_event(
+            db,
+            complaint,
+            "attachment_deleted",
+            f"Attachment deleted: {attachment.file_name}" + (f" (hash: {attachment.sha256})" if attachment.sha256 else ""),
+            user_id,
+        )
+
+
+def create_broker_referral(
+    db: Session,
+    complaint: Complaint,
+    broker_identifier: str,
+    user_id: Optional[str],
+    referred_at: Optional[datetime] = None,
+    what_was_sent: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> BrokerReferral:
+    ref = BrokerReferral(
+        complaint_id=complaint.id,
+        broker_identifier=broker_identifier,
+        referred_at=referred_at or utcnow(),
+        what_was_sent=what_was_sent or "",
+        notes=notes,
+        created_by_id=user_id,
+    )
+    db.add(ref)
+    db.flush()
+    add_event(
+        db,
+        complaint,
+        "referred_to_broker",
+        f"Referred to broker: {broker_identifier}. Sent: {(what_was_sent or '')[:100]}",
+        user_id,
+    )
+    audit_change(db, str(complaint.id), "broker_referral", "created", None, f"broker={broker_identifier}", user_id)
+    return ref
 
 
 def add_redress_payment(

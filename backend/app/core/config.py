@@ -31,6 +31,22 @@ class Settings(BaseSettings):
 
     enable_api_docs: bool = Field(False, env="ENABLE_API_DOCS")
 
+    # FCA DISP compliance feature flags (all default OFF)
+    require_final_response_evidence: bool = Field(False, env="REQUIRE_FINAL_RESPONSE_EVIDENCE")
+    require_d1_checklist: bool = Field(False, env="REQUIRE_D1_CHECKLIST")
+    require_outbound_before_close: bool = Field(False, env="REQUIRE_OUTBOUND_BEFORE_CLOSE")
+    enable_deadline_notifications: bool = Field(False, env="ENABLE_DEADLINE_NOTIFICATIONS")
+    enable_support_needs: bool = Field(False, env="ENABLE_SUPPORT_NEEDS")
+    enable_delay_response_kind: bool = Field(False, env="ENABLE_DELAY_RESPONSE_KIND")
+    enable_broker_referral: bool = Field(False, env="ENABLE_BROKER_REFERRAL")
+    enable_attachment_hashing: bool = Field(False, env="ENABLE_ATTACHMENT_HASHING")
+    restrict_vulnerability_notes: bool = Field(False, env="RESTRICT_VULNERABILITY_NOTES")
+
+    # Optional template/config strings (per environment)
+    waiver_statement_text: str = Field("", env="WAIVER_STATEMENT_TEXT")
+    d1_fos_website_url: str = Field("https://www.financial-ombudsman.org.uk", env="D1_FOS_WEBSITE_URL")
+    no_outbound_days_warning: int = Field(14, env="NO_OUTBOUND_DAYS_WARNING")
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()

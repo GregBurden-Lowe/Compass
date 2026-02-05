@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, Enum as SqlEnum, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, String, Enum as SqlEnum, DateTime, ForeignKey, Boolean, Text
+from sqlalchemy.types import JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -14,10 +15,13 @@ class Communication(Base):
     # Optional classification to keep comms tidy (e.g. acknowledgement, final_response, note_decision)
     kind = Column(String(32), nullable=True)
     summary = Column(String(1000), nullable=False)
+    body = Column(Text, nullable=True)
     occurred_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     is_final_response = Column(Boolean, nullable=False, server_default=func.false())
     is_internal = Column(Boolean, nullable=False, server_default=func.false())
+    d1_checklist_confirmed = Column(JSON, nullable=True)
+    confirmed_in_attachment = Column(Boolean, nullable=False, server_default=func.false())
 
     complaint = relationship("Complaint", back_populates="communications")
     attachments = relationship("Attachment", back_populates="communication", cascade="all, delete-orphan")

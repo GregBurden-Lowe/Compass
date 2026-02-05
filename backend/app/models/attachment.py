@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, ForeignKey, DateTime
+from sqlalchemy import Column, String, ForeignKey, DateTime, BigInteger
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import os
@@ -12,6 +12,11 @@ class Attachment(Base):
     content_type = Column(String(128), nullable=False)
     storage_path = Column(String(500), nullable=False)
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    sha256 = Column(String(64), nullable=True)
+    size_bytes = Column(BigInteger, nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by_id = Column(ForeignKey("user.id"), nullable=True)
+    delete_reason = Column(String(500), nullable=True)
 
     communication = relationship("Communication", back_populates="attachments")
 

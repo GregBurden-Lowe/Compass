@@ -7,6 +7,7 @@ import { TopBar } from '../components/layout'
 import { Button, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, ModalBody, ModalFooter, Input, Combobox } from '../components/ui'
 import { StatusChip } from '../components/StatusChip'
 import { useAuth } from '../context/AuthContext'
+import { useFeatures, D1_CHECKLIST_KEYS } from '../hooks/useFeatures'
 
 type Tab = 'overview' | 'communications' | 'outcome' | 'history'
 type CloseAction = 'close' | 'close-non-reportable'
@@ -15,6 +16,7 @@ export default function ComplaintDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const features = useFeatures()
   const [complaint, setComplaint] = useState<Complaint | null>(null)
   const [events, setEvents] = useState<ComplaintEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -77,11 +79,17 @@ export default function ComplaintDetail() {
     is_final_response: false,
     is_internal: false,
   })
+  const [d1Checked, setD1Checked] = useState<Record<string, boolean>>({})
+  const [confirmedInAttachment, setConfirmedInAttachment] = useState(false)
   const [expandedComms, setExpandedComms] = useState<Record<string, boolean>>({})
   const [showFinalResponseConfirm, setShowFinalResponseConfirm] = useState(false)
   const [commFiles, setCommFiles] = useState<FileList | null>(null)
   const [addingComm, setAddingComm] = useState(false)
   const [commError, setCommError] = useState<string | null>(null)
+  const [showDelayResponseModal, setShowDelayResponseModal] = useState(false)
+  const [showBrokerReferralModal, setShowBrokerReferralModal] = useState(false)
+  const [brokerReferralForm, setBrokerReferralForm] = useState({ broker_identifier: '', what_was_sent: '', notes: '' })
+  const [submittingBrokerReferral, setSubmittingBrokerReferral] = useState(false)
   
   // Outcome modal
   const [showOutcomeModal, setShowOutcomeModal] = useState(false)
@@ -242,8 +250,18 @@ export default function ComplaintDetail() {
 
     const isFinalResponse = commForm.is_internal ? false : commForm.is_final_response
 
-    // Guardrail: final response should generally have evidence (written response).
-    // To avoid breaking workflows, we show a confirm modal instead of hard-blocking.
+    if (features.require_d1_checklist && isFinalResponse) {
+      const allChecked = D1_CHECKLIST_KEYS.every((k) => d1Checked[k])
+      if (!confirmedInAttachment && !allChecked) {
+        setCommError('Complete the D1 checklist or select "Confirmed in attachment" and attach a file.')
+        return
+      }
+      if (confirmedInAttachment && (!commFiles || commFiles.length === 0)) {
+        setCommError('When "Confirmed in attachment" is selected, at least one attachment is required.')
+        return
+      }
+    }
+
     if (
       isFinalResponse &&
       (!commFiles || commFiles.length === 0) &&
@@ -265,6 +283,10 @@ export default function ComplaintDetail() {
       formData.append('occurred_at', dayjs(commForm.occurred_at).toISOString())
       formData.append('is_final_response', isFinalResponse.toString())
       formData.append('is_internal', commForm.is_internal.toString())
+      formData.append('confirmed_in_attachment', confirmedInAttachment.toString())
+      if (features.require_d1_checklist && isFinalResponse && D1_CHECKLIST_KEYS.every((k) => d1Checked[k])) {
+        formData.append('d1_checklist_confirmed', JSON.stringify(D1_CHECKLIST_KEYS))
+      }
 
       if (commFiles) {
         Array.from(commFiles).forEach((file) => {
@@ -286,6 +308,8 @@ export default function ComplaintDetail() {
         is_final_response: false,
         is_internal: false,
       })
+      setD1Checked({})
+      setConfirmedInAttachment(false)
       setCommFiles(null)
       loadComplaint()
     } catch (err: any) {
@@ -309,8 +333,27 @@ export default function ComplaintDetail() {
 
   const handleConfirmFinalResponseWithoutAttachment = async () => {
     setShowFinalResponseConfirm(false)
-    // proceed with normal submission without attachments
     await handleAddCommunication({ allowFinalWithoutAttachment: true })
+  }
+
+  const handleBrokerReferral = async () => {
+    if (!id || !brokerReferralForm.broker_identifier.trim()) return
+    setSubmittingBrokerReferral(true)
+    try {
+      await api.post(`/complaints/${id}/broker-referral`, {
+        broker_identifier: brokerReferralForm.broker_identifier.trim(),
+        what_was_sent: brokerReferralForm.what_was_sent || undefined,
+        notes: brokerReferralForm.notes || undefined,
+      })
+      setUiMessage({ type: 'success', text: 'Referred to broker' })
+      setShowBrokerReferralModal(false)
+      setBrokerReferralForm({ broker_identifier: '', what_was_sent: '', notes: '' })
+      loadComplaint()
+    } catch (err: any) {
+      setUiMessage({ type: 'error', text: err?.response?.data?.detail || 'Failed to refer to broker' })
+    } finally {
+      setSubmittingBrokerReferral(false)
+    }
   }
 
   if (loading) {
@@ -921,7 +964,35 @@ export default function ComplaintDetail() {
                           📨 Issue Final Response
                         </Button>
                       )}
-                      
+                      {features.enable_delay_response_kind && !complaint.final_response_at && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setCommForm({
+                              kind: 'delay_response_8week',
+                              channel: 'letter',
+                              direction: 'outbound',
+                              summary: "We are still investigating your complaint and have not yet been able to send our final response. We will send our final response by [DATE]. You may refer your complaint to the Financial Ombudsman Service now if you wish.",
+                              occurred_at: dayjs().format('YYYY-MM-DDTHH:mm'),
+                              is_final_response: false,
+                              is_internal: false,
+                            })
+                            setShowCommModal(true)
+                          }}
+                        >
+                          ⏱️ Send Delay Response
+                        </Button>
+                      )}
+                      {features.enable_broker_referral && (complaint.category === 'Sales' || complaint.category === 'sales') && !complaint.closed_at && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setShowBrokerReferralModal(true)}
+                        >
+                          📤 Refer to Broker
+                        </Button>
+                      )}
                       {!complaint.closed_at && (
                         <Button
                           variant="secondary"
@@ -1847,6 +1918,46 @@ export default function ComplaintDetail() {
         </ModalFooter>
       </Modal>
 
+      {/* Broker Referral Modal (FCA DISP E.*) */}
+      <Modal open={showBrokerReferralModal} onClose={() => setShowBrokerReferralModal(false)}>
+        <ModalHeader onClose={() => setShowBrokerReferralModal(false)}>Refer to Broker</ModalHeader>
+        <ModalBody>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Broker identifier *</label>
+              <Input
+                value={brokerReferralForm.broker_identifier}
+                onChange={(e) => setBrokerReferralForm((p) => ({ ...p, broker_identifier: e.target.value }))}
+                placeholder="Broker name or reference"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">What was sent</label>
+              <textarea
+                className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+                value={brokerReferralForm.what_was_sent}
+                onChange={(e) => setBrokerReferralForm((p) => ({ ...p, what_was_sent: e.target.value }))}
+                placeholder="Summary of what was sent to the broker"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-text-primary">Notes</label>
+              <Input
+                value={brokerReferralForm.notes}
+                onChange={(e) => setBrokerReferralForm((p) => ({ ...p, notes: e.target.value }))}
+                placeholder="Optional notes"
+              />
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowBrokerReferralModal(false)}>Cancel</Button>
+          <Button variant="primary" onClick={handleBrokerReferral} disabled={!brokerReferralForm.broker_identifier.trim() || submittingBrokerReferral}>
+            {submittingBrokerReferral ? 'Submitting...' : 'Refer to Broker'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
       {/* Reopen Complaint Modal */}
       <Modal open={showReopenModal} onClose={() => setShowReopenModal(false)}>
         <ModalHeader onClose={() => setShowReopenModal(false)}>Reopen Complaint</ModalHeader>
@@ -2169,6 +2280,8 @@ export default function ComplaintDetail() {
                 <option value="general">General</option>
                 <option value="acknowledgement">Acknowledgement</option>
                 <option value="final_response">Final Response</option>
+                <option value="progress_update">Progress Update</option>
+                {features.enable_delay_response_kind && <option value="delay_response_8week">Delay Response (8-week)</option>}
                 <option value="phone_call">Phone call</option>
                 <option value="letter">Letter</option>
               </select>
@@ -2253,6 +2366,35 @@ export default function ComplaintDetail() {
                 {commForm.is_final_response && (
                   <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/5 p-3 text-sm text-semantic-warning">
                     Final responses should normally have evidence attached (e.g., final response letter/email).
+                  </div>
+                )}
+                {features.require_d1_checklist && commForm.is_final_response && (
+                  <div className="rounded-lg border border-border bg-surface p-3 space-y-2">
+                    <p className="text-xs font-medium text-text-primary">D1 checklist (FCA final response)</p>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={confirmedInAttachment}
+                        onChange={() => setConfirmedInAttachment(!confirmedInAttachment)}
+                        className="h-4 w-4 rounded border-border text-brand"
+                      />
+                      <span className="text-sm">Confirmed in attachment (requires at least one file)</span>
+                    </label>
+                    {!confirmedInAttachment && (
+                      <div className="space-y-1">
+                        {D1_CHECKLIST_KEYS.map((key) => (
+                          <label key={key} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!d1Checked[key]}
+                              onChange={() => setD1Checked((prev) => ({ ...prev, [key]: !prev[key] }))}
+                              className="h-4 w-4 rounded border-border text-brand"
+                            />
+                            <span className="text-sm">{key.replace(/_/g, ' ')}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </>

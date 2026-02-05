@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from fastapi import (
     APIRouter,
+    Body,
     Depends,
     HTTPException,
     UploadFile,
@@ -48,6 +49,9 @@ from app.schemas.complaint import (
     EventOut,
     AcknowledgeRequest,
     CloseRequest,
+    FinalResponseRequest,
+    BrokerReferralCreate,
+    BrokerReferralOut,
     EscalateRequest,
     ReferToFosRequest,
 )
@@ -161,6 +165,7 @@ def list_complaints(
             _ = comm.attachments  # trigger lazy load if needed
     for c in complaints:
         service.refresh_breach_flags(c)
+        _mask_vulnerability_notes_if_restricted(c, current_user)
     db.commit()
     return complaints
 
@@ -357,6 +362,16 @@ def create_complaint(
     return complaint
 
 
+def _mask_vulnerability_notes_if_restricted(complaint: Complaint, current_user: User) -> None:
+    from app.core.config import get_settings
+    s = get_settings()
+    if not getattr(s, "restrict_vulnerability_notes", False):
+        return
+    if current_user.role in (UserRole.admin, UserRole.complaints_manager):
+        return
+    complaint.vulnerability_notes = None
+
+
 @router.get("/{complaint_id}", response_model=ComplaintOut)
 def get_complaint(
     complaint_id: str,
@@ -366,6 +381,7 @@ def get_complaint(
     complaint = _get_complaint(db, complaint_id)
     service.add_event(db, complaint, "accessed", "Complaint viewed", str(current_user.id))
     service.refresh_breach_flags(complaint)
+    _mask_vulnerability_notes_if_restricted(complaint, current_user)
     db.commit()
     return complaint
 
@@ -383,10 +399,18 @@ def update_complaint(
     from app.services.complaints import calculate_slas
     
     complaint = _get_complaint(db, complaint_id)
+    from app.core.config import get_settings
+    s = get_settings()
+    if getattr(s, "restrict_vulnerability_notes", False) and current_user.role not in (UserRole.admin, UserRole.complaints_manager):
+        if payload.vulnerability_notes is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to update vulnerability notes",
+            )
     original_category = complaint.category
     original_escalated = complaint.is_escalated
     original_received_at = complaint.received_at
-    
+
     if payload.category and payload.category == "Other / Unclassified" and not (payload.reason and payload.reason.strip()):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -436,12 +460,34 @@ def update_complaint(
                 if value:
                     setattr(complaint, field, value)
     
-    # Recalculate SLAs if received_at changed
-    if payload.received_at and payload.received_at != original_received_at:
+    # Recalculate SLAs if received_at changed; audit and event
+    received_at_changed = payload.received_at is not None and payload.received_at != original_received_at
+    original_ack_due = complaint.ack_due_at
+    original_final_due = complaint.final_due_at
+    if received_at_changed:
         ack_due, final_due = calculate_slas(payload.received_at)
         complaint.ack_due_at = ack_due
         complaint.final_due_at = final_due
-    
+        service.audit_change(
+            db, str(complaint.id), "complaint", "received_at",
+            original_received_at, payload.received_at, str(current_user.id),
+        )
+        service.audit_change(
+            db, str(complaint.id), "complaint", "ack_due_at",
+            original_ack_due, complaint.ack_due_at, str(current_user.id),
+        )
+        service.audit_change(
+            db, str(complaint.id), "complaint", "final_due_at",
+            original_final_due, complaint.final_due_at, str(current_user.id),
+        )
+        service.add_event(
+            db,
+            complaint,
+            "received_at_corrected",
+            f"received_at: {original_received_at} -> {payload.received_at}; ack_due: {original_ack_due} -> {complaint.ack_due_at}; final_due: {original_final_due} -> {complaint.final_due_at}",
+            str(current_user.id),
+        )
+
     escalated_changed = complaint.is_escalated != original_escalated
     if original_category != complaint.category and complaint.status in (
         ComplaintStatus.final_response_issued,
@@ -688,12 +734,24 @@ def set_outcome(
 @router.post("/{complaint_id}/final-response", response_model=ComplaintOut)
 def issue_final_response(
     complaint_id: str,
+    body: Optional[FinalResponseRequest] = Body(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager, UserRole.complaints_handler])),
 ):
     complaint = _get_complaint(db, complaint_id)
     try:
-        service.issue_final_response(db, complaint, str(current_user.id))
+        service.issue_final_response_with_communication(
+            db,
+            complaint,
+            str(current_user.id),
+            summary=None,
+            body=None,
+            confirmed_sent_externally=body.confirmed_sent_externally if body else False,
+            external_send_reason=body.external_send_reason if body else None,
+            attachment_count=0,
+            d1_checklist_confirmed=body.d1_checklist_confirmed if body else None,
+            confirmed_in_attachment=body.confirmed_in_attachment if body else False,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     db.commit()
@@ -805,6 +863,31 @@ def refer_to_fos(
     return complaint
 
 
+@router.post("/{complaint_id}/broker-referral", response_model=BrokerReferralOut, status_code=status.HTTP_201_CREATED)
+def create_broker_referral(
+    complaint_id: str,
+    payload: BrokerReferralCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
+):
+    from app.core.config import get_settings
+    if not get_settings().enable_broker_referral:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Broker referral is not enabled")
+    complaint = _get_complaint(db, complaint_id)
+    ref = service.create_broker_referral(
+        db,
+        complaint,
+        payload.broker_identifier,
+        str(current_user.id),
+        referred_at=payload.referred_at,
+        what_was_sent=payload.what_was_sent,
+        notes=payload.notes,
+    )
+    db.commit()
+    db.refresh(ref)
+    return ref
+
+
 @router.post("/{complaint_id}/communications", response_model=CommunicationOut)
 async def add_communication(
     complaint_id: str,
@@ -816,28 +899,37 @@ async def add_communication(
     is_internal: bool = Form(False),
     occurred_at: datetime = Form(...),
     files: List[UploadFile] = File(default=[]),
+    body: Optional[str] = Form(None),
+    d1_checklist_confirmed: Optional[str] = Form(None),
+    confirmed_in_attachment: bool = Form(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
 ):
     from app.core.config import get_settings
     import logging
+    import json
+    import hashlib
     logger = logging.getLogger(__name__)
     
     try:
         settings = get_settings()
         max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
+        enable_hashing = getattr(settings, "enable_attachment_hashing", False)
+        d1_list = None
+        if d1_checklist_confirmed:
+            try:
+                d1_list = json.loads(d1_checklist_confirmed)
+                if not isinstance(d1_list, list):
+                    d1_list = None
+            except (json.JSONDecodeError, TypeError):
+                d1_list = None
         
-        # Use FastAPI's standard File parameter handling instead of manual form parsing
-        # This ensures compatibility with all multipart encodings and client libraries
-        # files is already a List[UploadFile] with default=[]
         file_list: List[UploadFile] = files
-        
         complaint = _get_complaint(db, complaint_id)
         storage_root = Path("storage/attachments")
         storage_root.mkdir(parents=True, exist_ok=True)
         saved_files = []
         for upload in file_list:
-            # Check file size
             content = await upload.read()
             if len(content) > max_size_bytes:
                 raise HTTPException(
@@ -846,14 +938,19 @@ async def add_communication(
                 )
             safe_name = f"{utcnow().timestamp()}-{upload.filename}"
             dest = storage_root / safe_name
-            # Ensure absolute path for storage_path
             dest_absolute = dest.resolve()
             with dest_absolute.open("wb") as f:
                 f.write(content)
+            meta = {
+                "file_name": upload.filename,
+                "content_type": upload.content_type or "application/octet-stream",
+                "storage_path": str(dest_absolute),
+            }
+            if enable_hashing:
+                meta["sha256"] = hashlib.sha256(content).hexdigest()
+                meta["size_bytes"] = len(content)
+            saved_files.append(meta)
             logger.info(f"Saved attachment: {upload.filename} -> {dest_absolute} ({len(content)} bytes)")
-            saved_files.append(
-                {"file_name": upload.filename, "content_type": upload.content_type or "application/octet-stream", "storage_path": str(dest_absolute)}
-            )
         comm = service.add_communication_with_attachments(
             db,
             complaint=complaint,
@@ -866,6 +963,9 @@ async def add_communication(
             is_internal=is_internal,
             attachment_files=saved_files,
             user_id=str(current_user.id),
+            body=body,
+            d1_checklist_confirmed=d1_list,
+            confirmed_in_attachment=confirmed_in_attachment,
         )
         logger.info(f"Created communication {comm.id} with {len(saved_files)} attachment(s)")
         if is_final_response:
@@ -874,7 +974,10 @@ async def add_communication(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Outcome must be recorded before issuing final response",
                 )
-            service.issue_final_response(db, complaint, str(current_user.id))
+            try:
+                service.issue_final_response_with_communication(db, complaint, str(current_user.id), communication=comm)
+            except ValueError as exc:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
         db.commit()
         # Reload communication with attachments using joinedload to ensure they're included in response
         comm_with_attachments = (
@@ -975,31 +1078,14 @@ def delete_attachment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin])),
 ):
-    """Delete an attachment (admin only). Removes both the database record and the file from disk."""
-    from pathlib import Path
-    from app.models.attachment import Attachment
-    import logging
-    
-    logger = logging.getLogger(__name__)
-    
+    """Soft delete an attachment (admin only): set deleted_at, audit log and event; file is not removed."""
     attachment = db.get(Attachment, attachment_id)
     if not attachment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attachment not found")
-    
-    # Delete file from disk
-    file_path = Path(attachment.storage_path)
-    if file_path.exists():
-        try:
-            file_path.unlink()
-            logger.info(f"Deleted attachment file: {file_path}")
-        except Exception as e:
-            logger.warning(f"Failed to delete attachment file {file_path}: {e}")
-            # Continue with DB deletion even if file deletion fails
-    
-    # Delete database record (cascade will handle communication relationship)
-    db.delete(attachment)
+    if getattr(attachment, "deleted_at", None):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attachment already deleted")
+    service.soft_delete_attachment(db, attachment, str(current_user.id), delete_reason="Admin delete")
     db.commit()
-    
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

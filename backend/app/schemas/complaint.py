@@ -126,6 +126,9 @@ class CommunicationOut(CommunicationBase):
     id: UUID
     created_at: datetime
     attachments: List[AttachmentOut] = Field(default_factory=list)
+    body: Optional[str] = None
+    d1_checklist_confirmed: Optional[List[str]] = None
+    confirmed_in_attachment: bool = False
 
     class Config:
         orm_mode = True
@@ -264,6 +267,9 @@ class ComplaintOut(BaseModel):
     insurer: Optional[str]
     policy_number: Optional[str]
     is_escalated: bool
+    legal_hold: bool = False
+    retention_until: Optional[datetime] = None
+    support_needs: Optional[dict] = None
     complainant: ComplainantOut
     policy: PolicyOut
     communications: List[CommunicationOut] = Field(default_factory=list)
@@ -282,6 +288,36 @@ class EventOut(BaseModel):
     created_at: datetime
     created_by_id: Optional[UUID]
     created_by_name: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+
+class FinalResponseRequest(BaseModel):
+    """Optional body for POST /complaints/{id}/final-response when evidence or D1 required."""
+    confirmed_sent_externally: bool = False
+    external_send_reason: Optional[str] = None
+    d1_checklist_confirmed: Optional[List[str]] = None
+    confirmed_in_attachment: bool = False
+
+
+class BrokerReferralCreate(BaseModel):
+    broker_identifier: str
+    referred_at: Optional[datetime] = None
+    what_was_sent: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class BrokerReferralOut(BaseModel):
+    id: UUID
+    complaint_id: UUID
+    broker_identifier: str
+    referred_at: datetime
+    what_was_sent: Optional[str]
+    notes: Optional[str]
+    broker_ack_at: Optional[datetime]
+    created_by_id: Optional[UUID]
+    created_at: datetime
 
     class Config:
         orm_mode = True

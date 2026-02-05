@@ -182,6 +182,20 @@ export interface Communication {
   is_internal?: boolean
 }
 
+/** FCA DISP feature flags from GET /api/config/features (all default false) */
+export interface FeaturesFlags {
+  require_final_response_evidence: boolean
+  require_d1_checklist: boolean
+  require_outbound_before_close: boolean
+  enable_deadline_notifications: boolean
+  enable_support_needs: boolean
+  enable_delay_response_kind: boolean
+  enable_broker_referral: boolean
+  enable_attachment_hashing: boolean
+  restrict_vulnerability_notes: boolean
+  no_outbound_days_warning: number
+}
+
 export interface Attachment {
   id: string
   file_name: string

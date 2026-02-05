@@ -7,12 +7,12 @@ from sqlalchemy import (
     ForeignKey,
     Index,
 )
+from sqlalchemy.types import JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.models.base import Base
 from app.models.enums import ComplaintStatus
-from app.models.user import User
 from app.models.user import User
 
 
@@ -32,6 +32,9 @@ class Complaint(Base):
     vulnerability_flag = Column(Boolean, default=False, nullable=False)
     vulnerability_notes = Column(String(1000), nullable=True)
     non_reportable = Column(Boolean, default=False, nullable=False)
+    legal_hold = Column(Boolean, default=False, nullable=False)
+    retention_until = Column(DateTime(timezone=True), nullable=True)
+    support_needs = Column(JSON, nullable=True)
 
     policy_number = Column(String(128), index=True)
     insurer = Column(String(255))
@@ -61,6 +64,7 @@ class Complaint(Base):
     outcome = relationship("Outcome", back_populates="complaint", cascade="all, delete-orphan", uselist=False)
     redress_payments = relationship("RedressPayment", back_populates="complaint", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="complaint", cascade="all, delete-orphan")
+    broker_referrals = relationship("BrokerReferral", back_populates="complaint", cascade="all, delete-orphan")
     assigned_handler = relationship("User", foreign_keys=[assigned_handler_id])
 
     @property

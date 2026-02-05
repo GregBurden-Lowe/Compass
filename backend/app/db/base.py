@@ -10,6 +10,7 @@ from app.models.outcome import Outcome  # noqa: F401
 from app.models.redress import RedressPayment  # noqa: F401
 from app.models.audit import AuditLog  # noqa: F401
 from app.models.event import ComplaintEvent  # noqa: F401
+from app.models.broker_referral import BrokerReferral  # noqa: F401
 from app.models.product import Product  # noqa: F401
 from app.models.broker import Broker  # noqa: F401
 from app.models.insurer import Insurer  # noqa: F401
