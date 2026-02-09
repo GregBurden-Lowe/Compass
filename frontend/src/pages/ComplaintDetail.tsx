@@ -55,6 +55,7 @@ export default function ComplaintDetail() {
     complainant_phone: '',
     complainant_address: '',
     complainant_dob: '',
+    support_needs_entries: [] as { key: string; value: string }[],
   })
 
   // Reference data (for edit modal comboboxes)
@@ -822,6 +823,9 @@ export default function ComplaintDetail() {
       complainant_phone: complaint.complainant?.phone || '',
       complainant_address: complaint.complainant?.address || '',
       complainant_dob: complaint.complainant?.date_of_birth ? dayjs(complaint.complainant.date_of_birth).format('YYYY-MM-DD') : '',
+      support_needs_entries: complaint.support_needs && typeof complaint.support_needs === 'object'
+        ? Object.entries(complaint.support_needs).map(([k, v]) => ({ key: k, value: String(v ?? '') }))
+        : [],
     })
     setShowEditModal(true)
   }
@@ -859,6 +863,14 @@ export default function ComplaintDetail() {
           product: editForm.product || null,
           scheme: editForm.scheme || null,
         },
+      }
+      if (features.enable_support_needs) {
+        const supportNeeds: Record<string, string> = {}
+        editForm.support_needs_entries.forEach(({ key, value }) => {
+          const k = key.trim().replace(/\s+/g, '_').toLowerCase()
+          if (k) supportNeeds[k] = value.trim() || 'Yes'
+        })
+        payload.support_needs = Object.keys(supportNeeds).length ? supportNeeds : null
       }
 
       // Remove null-only nested objects if user left everything blank
@@ -2724,6 +2736,60 @@ export default function ComplaintDetail() {
                 </div>
               )}
             </div>
+
+            {features.enable_support_needs && (
+              <div className="rounded-lg border border-border bg-surface p-4">
+                <p className="text-xs font-semibold text-text-secondary mb-3">Support Needs</p>
+                <p className="text-xs text-text-muted mb-3">Record any support needs or circumstances (e.g. vulnerable customer, preferred contact).</p>
+                <div className="space-y-2">
+                  {editForm.support_needs_entries.map((entry, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Input
+                        placeholder="e.g. vulnerable_customer"
+                        value={entry.key}
+                        onChange={(e) => {
+                          const next = [...editForm.support_needs_entries]
+                          next[idx] = { ...next[idx], key: e.target.value }
+                          setEditForm({ ...editForm, support_needs_entries: next })
+                        }}
+                        className="flex-1"
+                      />
+                      <Input
+                        placeholder="Value or notes"
+                        value={entry.value}
+                        onChange={(e) => {
+                          const next = [...editForm.support_needs_entries]
+                          next[idx] = { ...next[idx], value: e.target.value }
+                          setEditForm({ ...editForm, support_needs_entries: next })
+                        }}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          setEditForm({
+                            ...editForm,
+                            support_needs_entries: editForm.support_needs_entries.filter((_, i) => i !== idx),
+                          })
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setEditForm({ ...editForm, support_needs_entries: [...editForm.support_needs_entries, { key: '', value: '' }] })}
+                  >
+                    + Add support need
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <div className="rounded-lg border border-border bg-surface p-4">
               <p className="text-xs font-semibold text-text-secondary mb-3">Policy Information</p>

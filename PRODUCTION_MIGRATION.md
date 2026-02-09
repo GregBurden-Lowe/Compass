@@ -137,12 +137,63 @@ UVICORN_WORKERS=4
 - [ ] SSL/TLS enabled (handled by DigitalOcean database)
 - [ ] `.env` file is NOT committed to git (should be in `.gitignore`)
 
+## Run migrations when app reports "legal_hold is missing"
+
+If the backend fails at startup with:
+
+```text
+RuntimeError: Database schema is outdated: column complaint.legal_hold is missing. ...
+```
+
+then the database the **app** connects to does not have migration 0017 applied. Common causes: different database name in `DATABASE_URL` (e.g. `/defaultdb` vs `/Compass`), or migrations running with a different env than the app.
+
+### Docker (docker-compose on a server/VM)
+
+The backend container runs `start.sh` (alembic then uvicorn) with the same env. If the error still appears, either the **database name** in `DATABASE_URL` is wrong, or something (e.g. connection pooler) is routing the app to a different node.
+
+1. **Check which database the app is using**  
+   The error message shows the host and database name (e.g. `.../Compass`). Ensure your `.env` (or env passed to `docker compose`) uses that **exact** database name in `DATABASE_URL`.
+
+2. **Run migrations in a one-off container** (same env as the running app):
+
+   ```bash
+   docker compose run --rm backend alembic upgrade head
+   ```
+
+   This uses the same `DATABASE_URL` as your backend service. Then restart:
+
+   ```bash
+   docker compose up -d backend
+   ```
+
+3. **If the error persists**, run migrations from your laptop against the DB the app uses (so the URL in the error message). On the host where Docker runs, ensure the database’s **Trusted Sources** (firewall) allow your IP if you run from elsewhere:
+
+   ```bash
+   cd backend
+   DATABASE_URL='postgresql+psycopg2://USER:PASSWORD@HOST:PORT/Compass?sslmode=require' alembic upgrade head
+   ```
+
+   Then restart the backend container.
+
+### Non-Docker (e.g. DigitalOcean App Platform)
+
+Run migrations from your machine with the **exact** `DATABASE_URL` from the app’s environment (same host, port, database name, `postgresql+psycopg2://`):
+
+```bash
+cd backend
+DATABASE_URL='postgresql+psycopg2://USER:PASSWORD@HOST:PORT/Compass?sslmode=require' alembic upgrade head
+```
+
+Then redeploy or restart the app.
+
 ## Troubleshooting
 
 ### Database Connection Issues
 - Verify connection string format: `postgresql+psycopg2://...`
-- Check firewall rules in DigitalOcean
+- Check firewall rules in DigitalOcean (and that your IP is allowed if running migrations from your laptop)
 - Verify SSL mode is `require`
+- Ensure the **database name** in the URL is the one you use for the app (e.g. `Compass`). DigitalOcean clusters also have a built-in `defaultdb`; use one name consistently so migrations and the app hit the same database.
+- **Migrations run but column still missing:** Your app is likely connecting to a **read replica** or pooler while migrations run on the primary. In DigitalOcean, use the **primary (writable)** connection string for `DATABASE_URL`, not the read-only or connection pooler endpoint. Otherwise the app will start but `/health` returns 503 and complaint endpoints may 500 until the replica has the schema.
 
 ### Rate Limiting Issues
 - Check `RATE_LIMIT_ENABLED=true` in `.env`

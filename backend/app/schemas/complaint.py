@@ -94,6 +94,7 @@ class ComplaintUpdate(BaseModel):
     insurer: Optional[str] = None
     policy_number: Optional[str] = None
     is_escalated: Optional[bool] = None
+    support_needs: Optional[dict] = None
     complainant: Optional[ComplainantCreate] = None
     policy: Optional[PolicyCreate] = None
 
