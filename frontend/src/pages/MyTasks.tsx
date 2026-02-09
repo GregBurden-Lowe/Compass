@@ -209,12 +209,10 @@ export default function MyTasks() {
     if (!date) return ''
     const now = dayjs()
     const target = dayjs(date)
-    
     if (target.isBefore(now)) {
-      return `${dayjs().to(target)} overdue`
-    } else {
-      return `due ${dayjs().to(target)}`
+      return `due ${target.format('D MMM YYYY')}`
     }
+    return `due ${dayjs().to(target)}`
   }
 
   const handleQuickAcknowledge = async (complaintId: string, e: React.MouseEvent) => {
