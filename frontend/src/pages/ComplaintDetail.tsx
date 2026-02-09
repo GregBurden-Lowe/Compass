@@ -1070,7 +1070,7 @@ export default function ComplaintDetail() {
                           ⏱️ Send Delay Response
                         </Button>
                       )}
-                      {features.enable_broker_referral && (complaint.category === 'Sales' || complaint.category === 'sales') && !complaint.closed_at && (
+                      {features.enable_broker_referral && complaint.category?.toLowerCase() === 'sales' && !complaint.closed_at && (
                         <Button
                           variant="secondary"
                           size="sm"
