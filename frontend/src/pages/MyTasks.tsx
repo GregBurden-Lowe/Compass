@@ -21,6 +21,24 @@ interface TaskGroup {
   complaints: Complaint[]
 }
 
+function isDueInCurrentWeek(date: string | null | undefined): boolean {
+  if (!date) return false
+  const d = dayjs(date)
+  const start = dayjs().startOf('week')
+  const end = dayjs().endOf('week')
+  return !d.isBefore(start) && !d.isAfter(end)
+}
+
+function getLastActivityAt(c: Complaint): string {
+  const dates: string[] = [c.received_at]
+  if (c.communications?.length) {
+    c.communications.forEach((comm) => {
+      if (comm.occurred_at) dates.push(comm.occurred_at)
+    })
+  }
+  return dates.reduce((latest, d) => (dayjs(d).isAfter(dayjs(latest)) ? d : latest), dates[0])
+}
+
 export default function MyTasks() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -32,130 +50,153 @@ export default function MyTasks() {
     loadTasks()
   }, [])
 
+  const buildTaskGroups = (complaints: Complaint[], unassignedPrefix = ''): TaskGroup[] => {
+    const groups: TaskGroup[] = []
+    const ackOverdue = complaints.filter(
+      (c) =>
+        (c.status === 'new' || c.status === 'reopened') &&
+        !c.acknowledged_at &&
+        c.ack_due_at &&
+        dayjs(c.ack_due_at).isBefore(dayjs())
+    )
+    let ackDue = complaints.filter(
+      (c) =>
+        (c.status === 'new' || c.status === 'reopened') &&
+        !c.acknowledged_at &&
+        c.ack_due_at &&
+        dayjs(c.ack_due_at).isAfter(dayjs())
+    )
+    ackDue = ackDue.filter((c) => isDueInCurrentWeek(c.ack_due_at))
+    const finalOverdue = complaints.filter(
+      (c) =>
+        (c.status === 'response_drafted' ||
+          c.status === 'in_investigation' ||
+          c.status === 'acknowledged') &&
+        !c.final_response_at &&
+        c.final_due_at &&
+        dayjs(c.final_due_at).isBefore(dayjs())
+    )
+    let finalDue = complaints.filter(
+      (c) =>
+        c.status === 'response_drafted' &&
+        !c.final_response_at &&
+        c.final_due_at &&
+        dayjs(c.final_due_at).isAfter(dayjs())
+    )
+    finalDue = finalDue.filter((c) => isDueInCurrentWeek(c.final_due_at))
+    const inInvestigation = complaints.filter(
+      (c) => c.status === 'in_investigation' || c.status === 'acknowledged'
+    )
+    const staleOpen = complaints.filter(
+      (c) => dayjs().diff(dayjs(getLastActivityAt(c)), 'day') >= 21
+    )
+    const desc = unassignedPrefix ? ' Unassigned – assign for action.' : ''
+    if (ackOverdue.length > 0) {
+      groups.push({
+        title: unassignedPrefix + 'Acknowledgements Overdue',
+        description: 'These complaints need acknowledgement urgently.' + desc,
+        icon: '🚨',
+        colorClass: 'semantic-error',
+        bgColorClass: 'bg-semantic-error/10',
+        textColorClass: 'text-semantic-error',
+        complaints: ackOverdue.sort(
+          (a, b) => dayjs(a.ack_due_at!).valueOf() - dayjs(b.ack_due_at!).valueOf()
+        ),
+      })
+    }
+    if (ackDue.length > 0) {
+      groups.push({
+        title: unassignedPrefix + 'Acknowledgements Due',
+        description: 'These complaints need acknowledgement soon.' + desc,
+        icon: '⏰',
+        colorClass: 'semantic-warning',
+        bgColorClass: 'bg-semantic-warning/10',
+        textColorClass: 'text-semantic-warning',
+        complaints: ackDue.sort(
+          (a, b) => dayjs(a.ack_due_at!).valueOf() - dayjs(b.ack_due_at!).valueOf()
+        ),
+      })
+    }
+    if (finalOverdue.length > 0) {
+      groups.push({
+        title: unassignedPrefix + 'Final Responses Overdue',
+        description: 'These complaints need final response urgently.' + desc,
+        icon: '🚨',
+        colorClass: 'semantic-error',
+        bgColorClass: 'bg-semantic-error/10',
+        textColorClass: 'text-semantic-error',
+        complaints: finalOverdue.sort(
+          (a, b) => dayjs(a.final_due_at!).valueOf() - dayjs(b.final_due_at!).valueOf()
+        ),
+      })
+    }
+    if (finalDue.length > 0) {
+      groups.push({
+        title: unassignedPrefix + 'Final Responses Due',
+        description: 'These complaints are ready for final response.' + desc,
+        icon: '📨',
+        colorClass: 'semantic-info',
+        bgColorClass: 'bg-semantic-info/10',
+        textColorClass: 'text-semantic-info',
+        complaints: finalDue.sort(
+          (a, b) => dayjs(a.final_due_at!).valueOf() - dayjs(b.final_due_at!).valueOf()
+        ),
+      })
+    }
+    if (staleOpen.length > 0) {
+      groups.push({
+        title: unassignedPrefix + 'Not accessed for 21+ days',
+        description: 'No activity recorded in the last 21 days.' + desc,
+        icon: '📆',
+        colorClass: 'text-text-secondary',
+        bgColorClass: 'bg-app',
+        textColorClass: 'text-text-secondary',
+        complaints: staleOpen.sort(
+          (a, b) =>
+            dayjs(getLastActivityAt(a)).valueOf() - dayjs(getLastActivityAt(b)).valueOf()
+        ),
+      })
+    }
+    if (inInvestigation.length > 0 && !unassignedPrefix) {
+      groups.push({
+        title: 'In Investigation',
+        description: 'These complaints are actively being worked on',
+        icon: '🔍',
+        colorClass: 'brand',
+        bgColorClass: 'bg-brand/10',
+        textColorClass: 'text-brand',
+        complaints: inInvestigation.sort(
+          (a, b) => dayjs(a.received_at).valueOf() - dayjs(b.received_at).valueOf()
+        ),
+      })
+    }
+    return groups
+  }
+
   const loadTasks = async () => {
     if (!user?.id) return
     
     setLoading(true)
     setError(null)
     try {
-      // Fetch complaints assigned to current user efficiently
+      // Fetch complaints assigned to current user
       const res = await api.get<Complaint[]>('/complaints', {
         params: { handler_id: user.id, page: 1, page_size: 100, _: Date.now() },
       })
-      const myComplaints = res.data.filter((c) => c.status !== 'Closed')
+      const myComplaints = res.data.filter((c) => c.status !== 'closed')
 
-      // Group tasks by what needs to be done
-      const acknowledgementsDue = myComplaints.filter(
-        (c) =>
-          (c.status === 'New' || c.status === 'Reopened') &&
-          !c.acknowledged_at &&
-          c.ack_due_at &&
-          dayjs(c.ack_due_at).isAfter(dayjs())
-      )
+      let taskGroups: TaskGroup[] = []
 
-      const acknowledgementsOverdue = myComplaints.filter(
-        (c) =>
-          (c.status === 'New' || c.status === 'Reopened') &&
-          !c.acknowledged_at &&
-          c.ack_due_at &&
-          dayjs(c.ack_due_at).isBefore(dayjs())
-      )
+      // All roles: fetch unassigned open complaints so tasks show any actions the user can take (with current-week cap in buildTaskGroups)
+      const unassignedRes = await api.get<Complaint[]>('/complaints', {
+        params: { unassigned_only: true, page: 1, page_size: 100, _: Date.now() },
+      })
+      const unassignedOpen = unassignedRes.data.filter((c) => c.status !== 'closed')
+      const unassignedGroups = buildTaskGroups(unassignedOpen, 'Unassigned – ')
+      taskGroups = [...unassignedGroups]
 
-      const inInvestigation = myComplaints.filter(
-        (c) => c.status === 'In Investigation' || c.status === 'Acknowledged'
-      )
-
-      const finalResponsesDue = myComplaints.filter(
-        (c) =>
-          c.status === 'Response Drafted' &&
-          !c.final_response_at &&
-          c.final_due_at &&
-          dayjs(c.final_due_at).isAfter(dayjs())
-      )
-
-      const finalResponsesOverdue = myComplaints.filter(
-        (c) =>
-          (c.status === 'Response Drafted' ||
-            c.status === 'In Investigation' ||
-            c.status === 'Acknowledged') &&
-          !c.final_response_at &&
-          c.final_due_at &&
-          dayjs(c.final_due_at).isBefore(dayjs())
-      )
-
-      const taskGroups: TaskGroup[] = []
-
-      if (acknowledgementsOverdue.length > 0) {
-        taskGroups.push({
-          title: 'Acknowledgements Overdue',
-          description: 'These complaints need acknowledgement urgently',
-          icon: '🚨',
-          colorClass: 'semantic-error',
-          bgColorClass: 'bg-semantic-error/10',
-          textColorClass: 'text-semantic-error',
-          complaints: acknowledgementsOverdue.sort(
-            (a, b) => dayjs(a.ack_due_at).valueOf() - dayjs(b.ack_due_at).valueOf()
-          ),
-        })
-      }
-
-      if (acknowledgementsDue.length > 0) {
-        taskGroups.push({
-          title: 'Acknowledgements Due',
-          description: 'These complaints need acknowledgement soon',
-          icon: '⏰',
-          colorClass: 'semantic-warning',
-          bgColorClass: 'bg-semantic-warning/10',
-          textColorClass: 'text-semantic-warning',
-          complaints: acknowledgementsDue.sort(
-            (a, b) => dayjs(a.ack_due_at).valueOf() - dayjs(b.ack_due_at).valueOf()
-          ),
-        })
-      }
-
-      if (finalResponsesOverdue.length > 0) {
-        taskGroups.push({
-          title: 'Final Responses Overdue',
-          description: 'These complaints need final response urgently',
-          icon: '🚨',
-          colorClass: 'semantic-error',
-          bgColorClass: 'bg-semantic-error/10',
-          textColorClass: 'text-semantic-error',
-          complaints: finalResponsesOverdue.sort(
-            (a, b) => dayjs(a.final_due_at).valueOf() - dayjs(b.final_due_at).valueOf()
-          ),
-        })
-      }
-
-      if (finalResponsesDue.length > 0) {
-        taskGroups.push({
-          title: 'Final Responses Due',
-          description: 'These complaints are ready for final response',
-          icon: '📨',
-          colorClass: 'semantic-info',
-          bgColorClass: 'bg-semantic-info/10',
-          textColorClass: 'text-semantic-info',
-          complaints: finalResponsesDue.sort(
-            (a, b) => dayjs(a.final_due_at).valueOf() - dayjs(b.final_due_at).valueOf()
-          ),
-        })
-      }
-
-      if (inInvestigation.length > 0) {
-        taskGroups.push({
-          title: 'In Investigation',
-          description: 'These complaints are actively being worked on',
-          icon: '🔍',
-          colorClass: 'brand',
-          bgColorClass: 'bg-brand/10',
-          textColorClass: 'text-brand',
-          complaints: inInvestigation.sort(
-            (a, b) => dayjs(a.received_at).valueOf() - dayjs(b.received_at).valueOf()
-          ),
-        })
-      }
-
-      setTasks(taskGroups)
+      const myGroups = buildTaskGroups(myComplaints)
+      setTasks([...taskGroups, ...myGroups])
     } catch (err: any) {
       console.error('Failed to load tasks', err)
       setError('Failed to load your tasks. Please try again.')
@@ -341,8 +382,14 @@ export default function MyTasks() {
                     {taskGroup.complaints.map((complaint) => {
                       const isAckTask = taskGroup.title.includes('Acknowledgement')
                       const isFinalTask = taskGroup.title.includes('Final Response')
-                      const relevantDate = isAckTask ? complaint.ack_due_at : isFinalTask ? complaint.final_due_at : null
+                      const isStaleTask = taskGroup.title.includes('Not accessed for 21+')
+                      const relevantDate = isAckTask
+                        ? complaint.ack_due_at
+                        : isFinalTask
+                          ? complaint.final_due_at
+                          : null
                       const isOverdue = relevantDate ? dayjs(relevantDate).isBefore(dayjs()) : false
+                      const lastActivityAt = isStaleTask ? getLastActivityAt(complaint) : null
                       
                       return (
                         <div
@@ -379,6 +426,11 @@ export default function MyTasks() {
                                   }`}
                                 >
                                   ⏰ {isAckTask ? 'Ack' : 'Final'} {getRelativeTime(relevantDate)}
+                                </span>
+                              )}
+                              {lastActivityAt && (
+                                <span className="text-text-secondary font-medium">
+                                  📆 Last activity {dayjs(lastActivityAt).fromNow()}
                                 </span>
                               )}
                             </div>
