@@ -27,13 +27,17 @@ api.interceptors.response.use(
     // fail closed: clear auth state and return user to login.
     const status = err?.response?.status
     if (status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('role')
-      localStorage.removeItem('name')
-      localStorage.removeItem('userId')
-      if (typeof window !== 'undefined') {
-        // Avoid infinite reload loops if the login screen itself fails.
-        if (window.location.pathname !== '/') window.location.assign('/')
+      // Don't trigger global logout for login failures (e.g. wrong password or MFA required)
+      const isLoginRequest = err?.config?.url?.includes('/auth/token')
+      if (!isLoginRequest) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('role')
+        localStorage.removeItem('name')
+        localStorage.removeItem('userId')
+        if (typeof window !== 'undefined') {
+          // Avoid infinite reload loops if the login screen itself fails.
+          if (window.location.pathname !== '/') window.location.assign('/')
+        }
       }
     }
     return Promise.reject(err)

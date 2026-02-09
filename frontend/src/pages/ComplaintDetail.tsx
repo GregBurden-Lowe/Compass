@@ -61,7 +61,7 @@ export default function ComplaintDetail() {
   const [products, setProducts] = useState<string[]>([])
   const [insurers, setInsurers] = useState<string[]>([])
   const [brokers, setBrokers] = useState<string[]>([])
-  
+
   // Assignment state
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string>('')
@@ -90,7 +90,7 @@ export default function ComplaintDetail() {
   const [showBrokerReferralModal, setShowBrokerReferralModal] = useState(false)
   const [brokerReferralForm, setBrokerReferralForm] = useState({ broker_identifier: '', what_was_sent: '', notes: '' })
   const [submittingBrokerReferral, setSubmittingBrokerReferral] = useState(false)
-  
+
   // Outcome modal
   const [showOutcomeModal, setShowOutcomeModal] = useState(false)
   const [outcomeForm, setOutcomeForm] = useState({
@@ -100,7 +100,7 @@ export default function ComplaintDetail() {
   })
   const [savingOutcome, setSavingOutcome] = useState(false)
   const [outcomeError, setOutcomeError] = useState<string | null>(null)
-  
+
   // Redress modal
   const [showRedressModal, setShowRedressModal] = useState(false)
   const [redressForm, setRedressForm] = useState({
@@ -315,7 +315,7 @@ export default function ComplaintDetail() {
     } catch (err: any) {
       const detail = err?.response?.data?.detail
       let errorMessage = 'Failed to add communication'
-      
+
       if (typeof detail === 'string') {
         errorMessage = detail
       } else if (Array.isArray(detail)) {
@@ -324,7 +324,7 @@ export default function ComplaintDetail() {
       } else if (detail && typeof detail === 'object') {
         errorMessage = JSON.stringify(detail)
       }
-      
+
       setCommError(errorMessage)
     } finally {
       setAddingComm(false)
@@ -877,11 +877,10 @@ export default function ComplaintDetail() {
         {/* Non-blocking feedback banner (replaces alert()) */}
         {uiMessage && (
           <div
-            className={`mb-6 rounded-lg border p-4 flex items-start justify-between gap-4 ${
-              uiMessage.type === 'success'
+            className={`mb-6 rounded-lg border p-4 flex items-start justify-between gap-4 ${uiMessage.type === 'success'
                 ? 'border-semantic-success/30 bg-semantic-success/5 text-semantic-success'
                 : 'border-semantic-error/30 bg-semantic-error/5 text-semantic-error'
-            }`}
+              }`}
           >
             <div className="text-sm">{uiMessage.text}</div>
             <button
@@ -900,11 +899,10 @@ export default function ComplaintDetail() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-3 text-sm font-medium capitalize transition border-b-2 ${
-                  activeTab === tab
+                className={`px-4 py-3 text-sm font-medium capitalize transition border-b-2 ${activeTab === tab
                     ? 'border-brand text-text-primary'
                     : 'border-transparent text-text-secondary hover:text-text-primary'
-                }`}
+                  }`}
               >
                 {tab}
               </button>
@@ -934,7 +932,7 @@ export default function ComplaintDetail() {
                           ✅ Acknowledge
                         </Button>
                       )}
-                      
+
                       {['acknowledged', 'new', 'reopened'].includes(statusKey(complaint.status)) && (
                         <Button
                           variant="primary"
@@ -944,7 +942,7 @@ export default function ComplaintDetail() {
                           🔍 Start Investigation
                         </Button>
                       )}
-                      
+
                       {['in_investigation'].includes(statusKey(complaint.status)) && (
                         <Button
                           variant="secondary"
@@ -954,7 +952,7 @@ export default function ComplaintDetail() {
                           📝 Draft Response
                         </Button>
                       )}
-                      
+
                       {complaint.outcome && !complaint.final_response_at && (
                         <Button
                           variant="primary"
@@ -1012,7 +1010,7 @@ export default function ComplaintDetail() {
                           🔓 Reopen Complaint
                         </Button>
                       )}
-                      
+
                       {complaint.fos_complaint ? (
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-semantic-info/10 text-semantic-info border border-semantic-info/20">
                           <span className="text-sm font-medium">🏛️ Referred to FOS</span>
@@ -1033,7 +1031,7 @@ export default function ComplaintDetail() {
                   </CardBody>
                 </Card>
               )}
-              
+
               <Card>
                 <CardHeader>
                   <CardTitle>Complaint Details</CardTitle>
@@ -1206,7 +1204,7 @@ export default function ComplaintDetail() {
                         {complaint.assigned_handler_name || 'Unassigned'}
                       </p>
                     </div>
-                    
+
                     {user?.role !== 'read_only' && (
                       <div className="space-y-2 pt-2 border-t border-border">
                         {/* Assign to Me button - available to all except read_only */}
@@ -1224,7 +1222,7 @@ export default function ComplaintDetail() {
                             Assign to Me
                           </Button>
                         )}
-                        
+
                         {/* Assign to Other button - only for admin/manager/reviewer */}
                         {(user?.role === 'admin' || user?.role === 'complaints_manager' || user?.role === 'reviewer') && (
                           <Button
@@ -1306,82 +1304,82 @@ export default function ComplaintDetail() {
                     const isExpanded = !!expandedComms[comm.id]
 
                     return (
-                    <Card key={comm.id}>
-                      <CardBody>
-                        <button
-                          type="button"
-                          className="w-full text-left"
-                          onClick={() =>
-                            setExpandedComms((prev) => ({
-                              ...prev,
-                              [comm.id]: !prev[comm.id],
-                            }))
-                          }
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium border ${kindChipClass}`}>
-                                  {kindLabel}
-                                </span>
-                                <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-app text-text-primary border border-border">
-                                  {comm.channel}
-                                </span>
-                                <span
-                                  className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${
-                                    String(comm.direction).toLowerCase() === 'inbound'
-                                      ? 'bg-semantic-info/10 text-semantic-info'
-                                      : 'bg-semantic-success/10 text-semantic-success'
-                                  }`}
-                                >
-                                  {String(comm.direction)
-                                    .replace(/_/g, ' ')
-                                    .replace(/^\w/, (c) => c.toUpperCase())}
-                                </span>
-                                {comm.attachments && comm.attachments.length > 0 && (
-                                  <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-app text-text-muted border border-border">
-                                    {comm.attachments.length} attachment{comm.attachments.length === 1 ? '' : 's'}
+                      <Card key={comm.id}>
+                        <CardBody>
+                          <button
+                            type="button"
+                            className="w-full text-left"
+                            onClick={() =>
+                              setExpandedComms((prev) => ({
+                                ...prev,
+                                [comm.id]: !prev[comm.id],
+                              }))
+                            }
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium border ${kindChipClass}`}>
+                                    {kindLabel}
                                   </span>
-                                )}
-                              </div>
-                              <p className="mt-2 text-sm text-text-secondary truncate">{previewText}</p>
-                            </div>
-                            <div className="flex items-center gap-3 flex-shrink-0">
-                              <span className="text-xs text-text-muted">
-                                {dayjs(comm.occurred_at).format('MMM D, YYYY h:mm A')}
-                              </span>
-                              <span className="text-xs text-text-muted">{isExpanded ? 'Collapse' : 'Expand'}</span>
-                            </div>
-                          </div>
-                        </button>
-
-                        {isExpanded && (
-                          <div className="mt-3 pt-3 border-t border-border">
-                            <div className="text-sm text-text-primary whitespace-pre-wrap">{comm.summary}</div>
-                            {comm.attachments && comm.attachments.length > 0 && (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {comm.attachments.map((att) => (
-                                  <a
-                                    key={att.id}
-                                    href={att.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-app text-text-primary hover:bg-border text-xs transition"
-                                    onClick={(e) => e.stopPropagation()}
+                                  <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-app text-text-primary border border-border">
+                                    {comm.channel}
+                                  </span>
+                                  <span
+                                    className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${String(comm.direction).toLowerCase() === 'inbound'
+                                        ? 'bg-semantic-info/10 text-semantic-info'
+                                        : 'bg-semantic-success/10 text-semantic-success'
+                                      }`}
                                   >
-                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                    </svg>
-                                    {att.file_name}
-                                  </a>
-                                ))}
+                                    {String(comm.direction)
+                                      .replace(/_/g, ' ')
+                                      .replace(/^\w/, (c) => c.toUpperCase())}
+                                  </span>
+                                  {comm.attachments && comm.attachments.length > 0 && (
+                                    <span className="inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium bg-app text-text-muted border border-border">
+                                      {comm.attachments.length} attachment{comm.attachments.length === 1 ? '' : 's'}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="mt-2 text-sm text-text-secondary truncate">{previewText}</p>
                               </div>
-                            )}
-                          </div>
-                        )}
-                      </CardBody>
-                    </Card>
-                  )})}
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <span className="text-xs text-text-muted">
+                                  {dayjs(comm.occurred_at).format('MMM D, YYYY h:mm A')}
+                                </span>
+                                <span className="text-xs text-text-muted">{isExpanded ? 'Collapse' : 'Expand'}</span>
+                              </div>
+                            </div>
+                          </button>
+
+                          {isExpanded && (
+                            <div className="mt-3 pt-3 border-t border-border">
+                              <div className="text-sm text-text-primary whitespace-pre-wrap">{comm.summary}</div>
+                              {comm.attachments && comm.attachments.length > 0 && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {comm.attachments.map((att) => (
+                                    <a
+                                      key={att.id}
+                                      href={att.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-app text-text-primary hover:bg-border text-xs transition"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                      </svg>
+                                      {att.file_name}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </CardBody>
+                      </Card>
+                    )
+                  })}
               </div>
             ) : (
               <div className="text-center py-12 rounded-lg border border-border bg-surface">
@@ -1445,7 +1443,25 @@ export default function ComplaintDetail() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-text-secondary mt-4">No outcome recorded yet</p>
+                  <div className="text-center py-8">
+                    {complaint.non_reportable ? (
+                      <div>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                          🚫 Closed as Non-Reportable
+                        </span>
+                        <p className="text-sm text-text-secondary mt-2">
+                          This complaint was closed without a formal outcome.
+                        </p>
+                        {complaint.closed_at && (
+                          <p className="text-xs text-text-muted mt-1">
+                            Closed on {dayjs(complaint.closed_at).format('D MMM YYYY')}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-text-secondary">No outcome recorded yet</p>
+                    )}
+                  </div>
                 )}
               </CardBody>
             </Card>
@@ -1535,7 +1551,7 @@ export default function ComplaintDetail() {
                 )}
               </CardBody>
             </Card>
-            
+
             {/* Close Complaint Actions */}
             {user?.role !== 'read_only' && complaint.status !== 'Closed' && (
               <Card>
@@ -1602,11 +1618,10 @@ export default function ComplaintDetail() {
                           <button
                             key={opt.key}
                             onClick={() => setHistoryViewMode(opt.key)}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
-                              historyViewMode === opt.key
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${historyViewMode === opt.key
                                 ? 'bg-app border-border text-text-primary'
                                 : 'bg-surface border-border text-text-secondary hover:text-text-primary hover:bg-app'
-                            }`}
+                              }`}
                           >
                             {opt.label}
                           </button>
@@ -1679,62 +1694,62 @@ export default function ComplaintDetail() {
                       }
 
                       return filtered.map((event) => {
-                      const getEventIcon = (eventType: string) => {
-                        if (eventType === 'created') return '📋'
-                        if (eventType === 'accessed') return '👁️'
-                        if (eventType === 'updated') return '✏️'
-                        if (eventType === 'acknowledged') return '✅'
-                        if (eventType === 'investigation_started') return '🔍'
-                        if (eventType === 'response_drafted') return '📝'
-                        if (eventType === 'outcome_recorded') return '⚖️'
-                        if (eventType === 'final_response_issued') return '📨'
-                        if (eventType === 'closed') return '🔒'
-                        if (eventType === 'closed_non_reportable') return '🚫'
-                        if (eventType === 'reopened') return '🔓'
-                        if (eventType === 'escalated') return '⬆️'
-                        if (eventType === 'assigned') return '👤'
-                        if (eventType === 'referred_to_fos') return '🏛️'
-                        if (eventType === 'communication_added') return '💬'
-                        if (eventType === 'redress_added' || eventType === 'redress_updated') return '💰'
-                        return '•'
-                      }
+                        const getEventIcon = (eventType: string) => {
+                          if (eventType === 'created') return '📋'
+                          if (eventType === 'accessed') return '👁️'
+                          if (eventType === 'updated') return '✏️'
+                          if (eventType === 'acknowledged') return '✅'
+                          if (eventType === 'investigation_started') return '🔍'
+                          if (eventType === 'response_drafted') return '📝'
+                          if (eventType === 'outcome_recorded') return '⚖️'
+                          if (eventType === 'final_response_issued') return '📨'
+                          if (eventType === 'closed') return '🔒'
+                          if (eventType === 'closed_non_reportable') return '🚫'
+                          if (eventType === 'reopened') return '🔓'
+                          if (eventType === 'escalated') return '⬆️'
+                          if (eventType === 'assigned') return '👤'
+                          if (eventType === 'referred_to_fos') return '🏛️'
+                          if (eventType === 'communication_added') return '💬'
+                          if (eventType === 'redress_added' || eventType === 'redress_updated') return '💰'
+                          return '•'
+                        }
 
-                      const formatEventType = (eventType: string) => {
-                        return eventType
-                          .split('_')
-                          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                          .join(' ')
-                      }
+                        const formatEventType = (eventType: string) => {
+                          return eventType
+                            .split('_')
+                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                            .join(' ')
+                        }
 
-                      return (
-                        <div key={event.id} className="flex gap-4 py-3 border-b border-border last:border-0 hover:bg-surface/50 transition px-3 -mx-3 rounded-lg">
-                          <div className="flex-shrink-0 text-lg pt-0.5">
-                            {getEventIcon(event.event_type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <p className="text-sm font-semibold text-text-primary">
-                                  {formatEventType(event.event_type)}
-                                </p>
-                                {event.description && (
-                                  <p className="text-sm text-text-secondary mt-1">{event.description}</p>
-                                )}
-                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                  {event.created_by_name && (
-                                    <span className="text-xs text-text-muted">
-                                      by {event.created_by_name}
-                                    </span>
+                        return (
+                          <div key={event.id} className="flex gap-4 py-3 border-b border-border last:border-0 hover:bg-surface/50 transition px-3 -mx-3 rounded-lg">
+                            <div className="flex-shrink-0 text-lg pt-0.5">
+                              {getEventIcon(event.event_type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold text-text-primary">
+                                    {formatEventType(event.event_type)}
+                                  </p>
+                                  {event.description && (
+                                    <p className="text-sm text-text-secondary mt-1">{event.description}</p>
                                   )}
-                                  <span className="text-xs text-text-muted">
-                                    {dayjs(event.created_at).format('MMM D, YYYY [at] h:mm A')}
-                                  </span>
+                                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                    {event.created_by_name && (
+                                      <span className="text-xs text-text-muted">
+                                        by {event.created_by_name}
+                                      </span>
+                                    )}
+                                    <span className="text-xs text-text-muted">
+                                      {dayjs(event.created_at).format('MMM D, YYYY [at] h:mm A')}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      )
+                        )
                       })
                     })()}
                   </div>
