@@ -117,6 +117,8 @@ export interface Complaint {
   communications?: Communication[]
   events?: ComplaintEvent[]
   reopened_at?: string
+  support_needs?: Record<string, any>
+  joined_outbound_comm_exists?: boolean
 }
 
 export interface CreateComplaintPayload {

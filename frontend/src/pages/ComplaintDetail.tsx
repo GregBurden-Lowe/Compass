@@ -22,7 +22,7 @@ export default function ComplaintDetail() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [users, setUsers] = useState<User[]>([])
-  const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [uiMessage, setUiMessage] = useState<{ type: 'success' | 'warning' | 'error'; text: string } | null>(null)
   const [historyViewMode, setHistoryViewMode] = useState<
     'all' | 'status' | 'communications' | 'decisions' | 'assignment'
   >('all')
@@ -356,6 +356,22 @@ export default function ComplaintDetail() {
     }
   }
 
+
+
+  // --- FCA DISP Deadline Notification Logic ---
+  const showDeadlineNudge =
+    features.enable_deadline_notifications &&
+    complaint &&
+    !complaint.closed_at &&
+    (complaint.ack_breached ||
+      complaint.final_breached ||
+      (complaint.ack_due_at &&
+        !complaint.acknowledged_at &&
+        dayjs(complaint.ack_due_at).diff(dayjs(), 'day') <= 1) ||
+      (complaint.final_due_at &&
+        !complaint.final_response_at &&
+        dayjs(complaint.final_due_at).diff(dayjs(), 'day') <= 3))
+
   if (loading) {
     return (
       <>
@@ -657,6 +673,29 @@ export default function ComplaintDetail() {
 
   const handleSubmitClose = async () => {
     if (!id || !closeAction) return
+
+    // --- FCA DISP Close Validation ---
+    if (features.require_outbound_before_close && !complaint?.joined_outbound_comm_exists) {
+      // Check existing comms locally (fallback if backend property not yet synced in frontend types, 
+      // but logic should ideally be: backend validation is final, frontend is UX).
+      // We'll check the local list.
+      const hasOutbound = complaint?.communications?.some(
+        (c) =>
+          c.direction === 'outbound' ||
+          c.kind === 'acknowledgement' ||
+          c.kind === 'delay_response_8week' ||
+          c.is_final_response
+      )
+      if (!hasOutbound) {
+        setUiMessage({
+          type: 'error',
+          text: 'Cannot close: An outbound communication (or acknowledgement) is required.',
+        })
+        setShowCloseModal(false)
+        return
+      }
+    }
+
     setClosing(true)
     try {
       await api.post(`/complaints/${id}/${closeAction}`, {
@@ -798,6 +837,7 @@ export default function ComplaintDetail() {
         description: editForm.description || null,
         category: editForm.category || null,
         reason: editForm.reason || null,
+
         vulnerability_flag: editForm.vulnerability_flag,
         vulnerability_notes: editForm.vulnerability_notes || null,
         product: editForm.product || null,
@@ -874,12 +914,60 @@ export default function ComplaintDetail() {
       />
 
       <div className="px-10 py-6">
+
+        {/* Deadline Notifications (FCA DISP) */}
+        {features.enable_deadline_notifications && !complaint.closed_at && (
+          <div className="space-y-3 mb-6">
+            {/* Acknowledgement Deadline */}
+            {!complaint.acknowledged_at && (
+              <>
+                {complaint.ack_breached ? (
+                  <div className="rounded-lg border border-semantic-error/30 bg-semantic-error/10 p-4 text-semantic-error flex items-center gap-3">
+                    <span className="text-lg">⚠️</span>
+                    <div className="text-sm font-medium">
+                      Acknowledgement deadline breached! Was due {dayjs(complaint.ack_due_at).format('MMM D, YYYY')}.
+                    </div>
+                  </div>
+                ) : dayjs(complaint.ack_due_at).diff(dayjs(), 'day') <= 2 ? (
+                  <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/10 p-4 text-semantic-warning flex items-center gap-3">
+                    <span className="text-lg">⏰</span>
+                    <div className="text-sm font-medium">
+                      Acknowledgement due soon: {dayjs(complaint.ack_due_at).format('MMM D, YYYY')} ({dayjs(complaint.ack_due_at).fromNow()})
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
+
+            {/* Final Response Deadline */}
+            {!complaint.final_response_at && (
+              <>
+                {complaint.final_breached ? (
+                  <div className="rounded-lg border border-semantic-error/30 bg-semantic-error/10 p-4 text-semantic-error flex items-center gap-3">
+                    <span className="text-lg">⚠️</span>
+                    <div className="text-sm font-medium">
+                      Final response deadline breached! Was due {dayjs(complaint.final_due_at).format('MMM D, YYYY')}.
+                    </div>
+                  </div>
+                ) : dayjs(complaint.final_due_at).diff(dayjs(), 'day') <= 5 ? (
+                  <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/10 p-4 text-semantic-warning flex items-center gap-3">
+                    <span className="text-lg">⏰</span>
+                    <div className="text-sm font-medium">
+                      Final response due soon: {dayjs(complaint.final_due_at).format('MMM D, YYYY')} ({dayjs(complaint.final_due_at).fromNow()})
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        )}
+
         {/* Non-blocking feedback banner (replaces alert()) */}
         {uiMessage && (
           <div
             className={`mb-6 rounded-lg border p-4 flex items-start justify-between gap-4 ${uiMessage.type === 'success'
-                ? 'border-semantic-success/30 bg-semantic-success/5 text-semantic-success'
-                : 'border-semantic-error/30 bg-semantic-error/5 text-semantic-error'
+              ? 'border-semantic-success/30 bg-semantic-success/5 text-semantic-success'
+              : 'border-semantic-error/30 bg-semantic-error/5 text-semantic-error'
               }`}
           >
             <div className="text-sm">{uiMessage.text}</div>
@@ -900,8 +988,8 @@ export default function ComplaintDetail() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-4 py-3 text-sm font-medium capitalize transition border-b-2 ${activeTab === tab
-                    ? 'border-brand text-text-primary'
-                    : 'border-transparent text-text-secondary hover:text-text-primary'
+                  ? 'border-brand text-text-primary'
+                  : 'border-transparent text-text-secondary hover:text-text-primary'
                   }`}
               >
                 {tab}
@@ -1160,6 +1248,10 @@ export default function ComplaintDetail() {
                 </CardBody>
               </Card>
 
+
+
+
+
               <Card>
                 <CardHeader>
                   <CardTitle>Timeline</CardTitle>
@@ -1191,6 +1283,33 @@ export default function ComplaintDetail() {
                   </div>
                 </CardBody>
               </Card>
+
+              {/* Support Needs Section (FCA DISP) */}
+              {features.enable_support_needs && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Support Needs</CardTitle>
+                  </CardHeader>
+                  <CardBody>
+                    {complaint.support_needs && Object.keys(complaint.support_needs).length > 0 ? (
+                      <div className="space-y-3">
+                        {Object.entries(complaint.support_needs).map(([key, value]) => (
+                          <div key={key}>
+                            <label className="block text-xs font-medium text-text-primary mb-1 capitalize">
+                              {key.replace(/_/g, ' ')}
+                            </label>
+                            <p className="text-sm text-text-secondary">
+                              {String(value) || 'Yes'}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-text-muted italic">No support needs recorded.</p>
+                    )}
+                  </CardBody>
+                </Card>
+              )}
 
               <Card>
                 <CardHeader>
@@ -1327,8 +1446,8 @@ export default function ComplaintDetail() {
                                   </span>
                                   <span
                                     className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${String(comm.direction).toLowerCase() === 'inbound'
-                                        ? 'bg-semantic-info/10 text-semantic-info'
-                                        : 'bg-semantic-success/10 text-semantic-success'
+                                      ? 'bg-semantic-info/10 text-semantic-info'
+                                      : 'bg-semantic-success/10 text-semantic-success'
                                       }`}
                                   >
                                     {String(comm.direction)
@@ -1619,8 +1738,8 @@ export default function ComplaintDetail() {
                             key={opt.key}
                             onClick={() => setHistoryViewMode(opt.key)}
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${historyViewMode === opt.key
-                                ? 'bg-app border-border text-text-primary'
-                                : 'bg-surface border-border text-text-secondary hover:text-text-primary hover:bg-app'
+                              ? 'bg-app border-border text-text-primary'
+                              : 'bg-surface border-border text-text-secondary hover:text-text-primary hover:bg-app'
                               }`}
                           >
                             {opt.label}
@@ -1775,10 +1894,10 @@ export default function ComplaintDetail() {
             </CardBody>
           </Card>
         )}
-      </div>
+      </div >
 
       {/* Assign to User Modal */}
-      <Modal open={showAssignModal} onClose={() => setShowAssignModal(false)}>
+      < Modal open={showAssignModal} onClose={() => setShowAssignModal(false)}>
         <ModalHeader onClose={() => setShowAssignModal(false)}>Assign Complaint</ModalHeader>
         <ModalBody>
           {assignError && (
@@ -1817,10 +1936,10 @@ export default function ComplaintDetail() {
             {assigning ? 'Assigning...' : 'Assign'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Acknowledge Email Modal */}
-      <Modal open={showAcknowledgeModal} onClose={() => setShowAcknowledgeModal(false)}>
+      < Modal open={showAcknowledgeModal} onClose={() => setShowAcknowledgeModal(false)}>
         <ModalHeader onClose={() => setShowAcknowledgeModal(false)}>Acknowledge complaint</ModalHeader>
         <ModalBody>
           <div className="space-y-4">
@@ -1902,10 +2021,10 @@ export default function ComplaintDetail() {
             {ackModalBusy ? 'Acknowledging...' : 'Mark acknowledged'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Close Complaint Modal */}
-      <Modal open={showCloseModal} onClose={() => setShowCloseModal(false)}>
+      < Modal open={showCloseModal} onClose={() => setShowCloseModal(false)}>
         <ModalHeader onClose={() => setShowCloseModal(false)}>Confirm Closure</ModalHeader>
         <ModalBody>
           <div className="space-y-4">
@@ -1933,10 +2052,10 @@ export default function ComplaintDetail() {
             {closing ? 'Closing...' : 'Confirm Closure'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Broker Referral Modal (FCA DISP E.*) */}
-      <Modal open={showBrokerReferralModal} onClose={() => setShowBrokerReferralModal(false)}>
+      < Modal open={showBrokerReferralModal} onClose={() => setShowBrokerReferralModal(false)}>
         <ModalHeader onClose={() => setShowBrokerReferralModal(false)}>Refer to Broker</ModalHeader>
         <ModalBody>
           <div className="space-y-4">
@@ -1973,10 +2092,10 @@ export default function ComplaintDetail() {
             {submittingBrokerReferral ? 'Submitting...' : 'Refer to Broker'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Reopen Complaint Modal */}
-      <Modal open={showReopenModal} onClose={() => setShowReopenModal(false)}>
+      < Modal open={showReopenModal} onClose={() => setShowReopenModal(false)}>
         <ModalHeader onClose={() => setShowReopenModal(false)}>Reopen Complaint</ModalHeader>
         <ModalBody>
           <div className="space-y-4">
@@ -2013,10 +2132,10 @@ export default function ComplaintDetail() {
             {reopening ? 'Reopening...' : 'Reopen'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Refer to FOS Modal */}
-      <Modal open={showFosModal} onClose={() => setShowFosModal(false)}>
+      < Modal open={showFosModal} onClose={() => setShowFosModal(false)}>
         <ModalHeader onClose={() => setShowFosModal(false)}>Refer to Ombudsman (FOS)</ModalHeader>
         <ModalBody>
           {fosError && (
@@ -2061,10 +2180,10 @@ export default function ComplaintDetail() {
             {referringToFos ? 'Referring...' : 'Confirm Referral'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Record Outcome Modal */}
-      <Modal open={showOutcomeModal} onClose={() => setShowOutcomeModal(false)}>
+      < Modal open={showOutcomeModal} onClose={() => setShowOutcomeModal(false)}>
         <ModalHeader onClose={() => setShowOutcomeModal(false)}>
           {complaint?.outcome ? 'Update Outcome' : 'Record Outcome'}
         </ModalHeader>
@@ -2123,10 +2242,10 @@ export default function ComplaintDetail() {
             {savingOutcome ? 'Saving...' : 'Save Outcome'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Add Redress Modal */}
-      <Modal open={showRedressModal} onClose={() => setShowRedressModal(false)}>
+      < Modal open={showRedressModal} onClose={() => setShowRedressModal(false)}>
         <ModalHeader onClose={() => setShowRedressModal(false)}>Add Redress Payment</ModalHeader>
         <ModalBody>
           {redressError && (
@@ -2197,10 +2316,10 @@ export default function ComplaintDetail() {
             {savingRedress ? 'Adding...' : 'Add Redress'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Record Payment Date Modal */}
-      <Modal open={showPaidAtModal} onClose={() => setShowPaidAtModal(false)}>
+      < Modal open={showPaidAtModal} onClose={() => setShowPaidAtModal(false)}>
         <ModalHeader onClose={() => setShowPaidAtModal(false)}>Record Payment Date</ModalHeader>
         <ModalBody>
           {paidAtError && (
@@ -2237,10 +2356,10 @@ export default function ComplaintDetail() {
             {savingPaidAt ? 'Saving...' : 'Save payment date'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Add Communication Modal */}
-      <Modal open={showCommModal} onClose={() => setShowCommModal(false)}>
+      < Modal open={showCommModal} onClose={() => setShowCommModal(false)}>
         <ModalHeader onClose={() => setShowCommModal(false)}>Add Communication</ModalHeader>
         <ModalBody>
           {commError && (
@@ -2430,10 +2549,10 @@ export default function ComplaintDetail() {
             {addingComm ? 'Adding...' : 'Add Communication'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Final response confirmation (no attachment) */}
-      <Modal open={showFinalResponseConfirm} onClose={() => setShowFinalResponseConfirm(false)}>
+      < Modal open={showFinalResponseConfirm} onClose={() => setShowFinalResponseConfirm(false)}>
         <ModalHeader onClose={() => setShowFinalResponseConfirm(false)}>Final Response without attachment?</ModalHeader>
         <ModalBody>
           <div className="space-y-3">
@@ -2456,10 +2575,10 @@ export default function ComplaintDetail() {
             Continue anyway
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Edit Complaint Modal */}
-      <Modal open={showEditModal} onClose={() => setShowEditModal(false)}>
+      < Modal open={showEditModal} onClose={() => setShowEditModal(false)}>
         <ModalHeader onClose={() => setShowEditModal(false)}>Edit Complaint</ModalHeader>
         <ModalBody>
           {editError && (
@@ -2595,7 +2714,13 @@ export default function ComplaintDetail() {
                     value={editForm.vulnerability_notes}
                     onChange={(e) => setEditForm({ ...editForm, vulnerability_notes: e.target.value })}
                     placeholder="Notes…"
+                    disabled={features.restrict_vulnerability_notes && user?.role !== 'admin' && user?.role !== 'complaints_manager'}
                   />
+                  {features.restrict_vulnerability_notes && user?.role !== 'admin' && user?.role !== 'complaints_manager' && (
+                    <p className="text-xs text-text-muted mt-1">
+                      Only managers and admins can edit vulnerability notes.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -2658,10 +2783,10 @@ export default function ComplaintDetail() {
             {savingEdit ? 'Saving…' : 'Save changes'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
 
       {/* Admin: Delete Complaint */}
-      <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
+      < Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
         <ModalHeader onClose={() => setShowDeleteModal(false)}>Delete Complaint</ModalHeader>
         <ModalBody>
           <div className="space-y-4">
@@ -2699,7 +2824,7 @@ export default function ComplaintDetail() {
             {deletingComplaint ? 'Deleting...' : 'Delete permanently'}
           </Button>
         </ModalFooter>
-      </Modal>
+      </Modal >
     </>
   )
 }

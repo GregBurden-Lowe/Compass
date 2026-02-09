@@ -123,7 +123,8 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     def _check_schema():
-        """Fail fast if DB is missing migration 0017 (e.g. app and migrations use different DBs)."""
+        """Warn if DB is missing migration 0017 (e.g. app hits read replica while migrations ran on primary)."""
+        app.state.schema_outdated = False
         try:
             db = SessionLocal()
             try:
@@ -134,6 +135,7 @@ def create_app() -> FastAPI:
                     )
                 )
                 if r.scalar() is None:
+                    app.state.schema_outdated = True
                     url = settings.database_url
                     redacted = "***"
                     if url and "@" in url:
@@ -141,15 +143,22 @@ def create_app() -> FastAPI:
                             redacted = url.split("@")[1].split("?")[0] + " (password redacted)"
                         except Exception:
                             pass
-                    raise RuntimeError(
+                    current_db = "?"
+                    try:
+                        cur = db.execute(text("SELECT current_database()"))
+                        current_db = cur.scalar() or "?"
+                    except Exception:
+                        pass
+                    logger.critical(
                         "Database schema is outdated: column complaint.legal_hold is missing. "
-                        "Run migrations against the same database this app uses: "
-                        "alembic upgrade head (ensure DATABASE_URL points to this database: " + redacted + ")."
+                        "App is connected to database %s at %s. "
+                        "If using DigitalOcean, set DATABASE_URL to the primary (writable) connection, not a read replica or pooler. "
+                        "API requests that use complaint data may fail until the schema is visible to this connection.",
+                        current_db,
+                        redacted,
                     )
             finally:
                 db.close()
-        except RuntimeError:
-            raise
         except SQLAlchemyError as e:
             logger.warning("Schema check skipped (DB unreachable at startup): %s", e)
 
@@ -157,6 +166,15 @@ def create_app() -> FastAPI:
     async def health():
         """Enhanced health check with database connectivity"""
         from sqlalchemy import text
+        if getattr(app.state, "schema_outdated", False):
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "status": "unhealthy",
+                    "database": "connected",
+                    "detail": "Schema outdated (e.g. app connected to read replica). Use primary DATABASE_URL.",
+                },
+            )
         db_status = "unknown"
         try:
             db = SessionLocal()
