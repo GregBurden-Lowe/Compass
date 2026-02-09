@@ -6,6 +6,7 @@ import ComplaintDetail from './pages/ComplaintDetail'
 import CreateComplaintWizard from './pages/CreateComplaintWizard'
 import MyTasks from './pages/MyTasks'
 import AdminUsers from './pages/AdminUsers'
+import Reports from './pages/Reports'
 import ReferenceData from './pages/ReferenceData'
 import Profile from './pages/Profile'
 import { useAuth } from './context/AuthContext'
@@ -327,6 +328,7 @@ export default function App() {
         <Route path="/complaints/:id" element={<ComplaintDetail />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/users" element={<AdminUsers />} />
+        <Route path="/reports" element={<Reports />} />
         <Route path="/reference" element={<ReferenceData />} />
         <Route path="/settings" element={<Profile />} />
       </Routes>

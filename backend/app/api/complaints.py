@@ -109,6 +109,7 @@ def _last_activity_at(c: Complaint):
 def list_complaints(
     status_filter: Optional[str] = None,
     handler_id: Optional[str] = None,
+    unassigned_only: Optional[bool] = None,
     product: Optional[str] = None,
     outcome: Optional[OutcomeType] = None,
     vulnerability: Optional[bool] = None,
@@ -132,6 +133,8 @@ def list_complaints(
             pass
     if handler_id:
         query = query.filter(Complaint.assigned_handler_id == handler_id)
+    if unassigned_only:
+        query = query.filter(Complaint.assigned_handler_id.is_(None))
     if product:
         query = query.filter(Complaint.product == product)
     if vulnerability is not None:
@@ -335,6 +338,82 @@ def complaint_metrics(
         },
         # (optional) keep legacy counts if you still use them elsewhere
         "counts": {"total": total, "open": len(open_cases), "closed": len(closed_cases)},
+    }
+
+
+@router.get("/sla-by-user")
+def sla_by_user_report(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_manager])),
+):
+    """SLA performance by assigned handler for managers/admins. Complaints received in the last `days` (default 30)."""
+    now = utcnow()
+    since = now - timedelta(days=max(1, min(days, 365)))
+    complaints = (
+        db.query(Complaint)
+        .filter(Complaint.received_at.isnot(None), Complaint.received_at >= since)
+        .filter(Complaint.assigned_handler_id.isnot(None))
+        .all()
+    )
+    handler_ids = list({str(c.assigned_handler_id) for c in complaints})
+    user_name_map: dict[str, str] = {}
+    if handler_ids:
+        users = db.query(User).filter(User.id.in_(handler_ids)).all()
+        for u in users:
+            user_name_map[str(u.id)] = getattr(u, "full_name", None) or getattr(u, "email", None) or "Unknown"
+
+    # Per-handler: ack/final on-time and missed
+    stats: dict[str, dict] = {}
+    for c in complaints:
+        hid = str(c.assigned_handler_id)
+        if hid not in stats:
+            stats[hid] = {
+                "handler_id": hid,
+                "handler_name": user_name_map.get(hid, "Unknown"),
+                "ack_on_time": 0,
+                "ack_missed": 0,
+                "ack_total": 0,
+                "final_on_time": 0,
+                "final_missed": 0,
+                "final_total": 0,
+            }
+        s = stats[hid]
+        # Ack: only count if ack was due (ack_due_at set)
+        if c.ack_due_at:
+            s["ack_total"] += 1
+            if c.acknowledged_at is not None:
+                if c.acknowledged_at <= c.ack_due_at:
+                    s["ack_on_time"] += 1
+                else:
+                    s["ack_missed"] += 1
+            elif now > c.ack_due_at:
+                s["ack_missed"] += 1
+            else:
+                pass  # not yet due
+        # Final: only count if final was due
+        if c.final_due_at:
+            s["final_total"] += 1
+            if c.final_response_at is not None:
+                if c.final_response_at <= c.final_due_at:
+                    s["final_on_time"] += 1
+                else:
+                    s["final_missed"] += 1
+            elif now > c.final_due_at:
+                s["final_missed"] += 1
+
+    result = list(stats.values())
+    for s in result:
+        at = s["ack_total"]
+        ft = s["final_total"]
+        s["ack_on_time_pct"] = round(100 * s["ack_on_time"] / at, 1) if at else None
+        s["final_on_time_pct"] = round(100 * s["final_on_time"] / ft, 1) if ft else None
+    result.sort(key=lambda x: (x["handler_name"].lower(), x["handler_id"]))
+    return {
+        "period_days": days,
+        "since": since.isoformat(),
+        "as_of": now.isoformat(),
+        "by_handler": result,
     }
 
 

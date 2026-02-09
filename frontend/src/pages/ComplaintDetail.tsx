@@ -1062,7 +1062,10 @@ export default function ComplaintDetail() {
                           📨 Issue Final Response
                         </Button>
                       )}
-                      {features.enable_delay_response_kind && !complaint.final_response_at && (
+                      {features.enable_delay_response_kind &&
+                        !complaint.final_response_at &&
+                        complaint.received_at &&
+                        dayjs().diff(dayjs(complaint.received_at), 'day') >= 49 && (
                         <Button
                           variant="secondary"
                           size="sm"
