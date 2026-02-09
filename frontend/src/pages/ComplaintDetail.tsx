@@ -108,7 +108,6 @@ export default function ComplaintDetail() {
     payment_type: 'financial_loss',
     amount: '',
     rationale: '',
-    action_description: '',
   })
   const [savingRedress, setSavingRedress] = useState(false)
   const [redressError, setRedressError] = useState<string | null>(null)
@@ -605,7 +604,6 @@ export default function ComplaintDetail() {
         payment_type: redressForm.payment_type,
         amount: amount !== null ? amount : null,
         rationale: rationale || null,
-        action_description: redressForm.action_description || null,
         outcome_id: complaint?.outcome?.id || null,
       })
       setShowRedressModal(false)
@@ -613,7 +611,6 @@ export default function ComplaintDetail() {
         payment_type: 'financial_loss',
         amount: '',
         rationale: '',
-        action_description: '',
       })
       loadComplaint()
     } catch (err: any) {
@@ -1662,15 +1659,6 @@ export default function ComplaintDetail() {
                           </div>
                         )}
 
-                        {redress.action_description && (
-                          <div className="mb-3">
-                            <label className="block text-xs font-medium text-text-primary mb-1">Action</label>
-                            <div className="flex items-start justify-between">
-                              <p className="text-sm text-text-secondary flex-1">{redress.action_description}</p>
-                            </div>
-                          </div>
-                        )}
-
                       </div>
                     ))}
                   </div>
@@ -2308,16 +2296,6 @@ export default function ComplaintDetail() {
                 value={redressForm.rationale}
                 onChange={(e) => setRedressForm({ ...redressForm, rationale: e.target.value })}
                 placeholder="Why is this redress being offered?"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Action Description</label>
-              <textarea
-                className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
-                value={redressForm.action_description}
-                onChange={(e) => setRedressForm({ ...redressForm, action_description: e.target.value })}
-                placeholder="What action needs to be taken?"
               />
             </div>
 
