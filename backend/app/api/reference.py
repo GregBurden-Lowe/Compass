@@ -1,6 +1,7 @@
 import csv
 from io import StringIO
 from typing import Type
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
@@ -11,7 +12,7 @@ from app.models.broker import Broker
 from app.models.insurer import Insurer
 from app.models.product import Product
 from app.models.enums import UserRole
-from app.schemas.reference import ReferenceCreate, ReferenceOut
+from app.schemas.reference import ReferenceCreate, ReferenceOut, ReferenceUpdate
 
 
 router = APIRouter(prefix="/reference", tags=["reference"])
@@ -30,6 +31,28 @@ def _create(model: Type, payload: ReferenceCreate, db: Session):
     db.commit()
     db.refresh(item)
     return item
+
+
+def _update(model: Type, item_id: UUID, payload: ReferenceUpdate, db: Session):
+    item = db.get(model, item_id)
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    existing = db.query(model).filter(model.name.ilike(payload.name), model.id != item_id).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name already exists")
+    item.name = payload.name
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def _delete(model: Type, item_id: UUID, db: Session):
+    item = db.get(model, item_id)
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    db.delete(item)
+    db.commit()
 
 
 def _import(model: Type, file: UploadFile, db: Session):
@@ -66,6 +89,16 @@ def create_product(payload: ReferenceCreate, db: Session = Depends(get_db), _: N
     return _create(Product, payload, db)
 
 
+@router.patch("/products/{item_id}", response_model=ReferenceOut)
+def update_product(item_id: UUID, payload: ReferenceUpdate, db: Session = Depends(get_db), _: None = Depends(require_roles([UserRole.admin]))):
+    return _update(Product, item_id, payload, db)
+
+
+@router.delete("/products/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_product(item_id: UUID, db: Session = Depends(get_db), _: None = Depends(require_roles([UserRole.admin]))):
+    return _delete(Product, item_id, db)
+
+
 @router.post("/products/import")
 def import_products(file: UploadFile, db: Session = Depends(get_db), _: None = Depends(require_roles([UserRole.admin]))):
     return _import(Product, file, db)
@@ -81,6 +114,16 @@ def create_broker(payload: ReferenceCreate, db: Session = Depends(get_db), _: No
     return _create(Broker, payload, db)
 
 
+@router.patch("/brokers/{item_id}", response_model=ReferenceOut)
+def update_broker(item_id: UUID, payload: ReferenceUpdate, db: Session = Depends(get_db), _: None = Depends(require_roles([UserRole.admin]))):
+    return _update(Broker, item_id, payload, db)
+
+
+@router.delete("/brokers/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_broker(item_id: UUID, db: Session = Depends(get_db), _: None = Depends(require_roles([UserRole.admin]))):
+    return _delete(Broker, item_id, db)
+
+
 @router.post("/brokers/import")
 def import_brokers(file: UploadFile, db: Session = Depends(get_db), _: None = Depends(require_roles([UserRole.admin]))):
     return _import(Broker, file, db)
@@ -94,6 +137,16 @@ def list_insurers(db: Session = Depends(get_db), _: None = Depends(get_current_u
 @router.post("/insurers", response_model=ReferenceOut, status_code=status.HTTP_201_CREATED)
 def create_insurer(payload: ReferenceCreate, db: Session = Depends(get_db), _: None = Depends(require_roles([UserRole.admin]))):
     return _create(Insurer, payload, db)
+
+
+@router.patch("/insurers/{item_id}", response_model=ReferenceOut)
+def update_insurer(item_id: UUID, payload: ReferenceUpdate, db: Session = Depends(get_db), _: None = Depends(require_roles([UserRole.admin]))):
+    return _update(Insurer, item_id, payload, db)
+
+
+@router.delete("/insurers/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_insurer(item_id: UUID, db: Session = Depends(get_db), _: None = Depends(require_roles([UserRole.admin]))):
+    return _delete(Insurer, item_id, db)
 
 
 @router.post("/insurers/import")

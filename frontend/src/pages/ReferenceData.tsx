@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
 import { TopBar } from '../components/layout'
-import { Button, Input, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, ModalBody, ModalFooter } from '../components/ui'
+import { Button, Input, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, ModalBody, ModalFooter, Table } from '../components/ui'
 import type { ReferenceItem } from '../types'
+import dayjs from 'dayjs'
 
 type ReferenceType = 'products' | 'brokers' | 'insurers'
 
@@ -21,6 +22,19 @@ export default function ReferenceData() {
   const [newItemName, setNewItemName] = useState('')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+
+  // Edit modal
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editItem, setEditItem] = useState<ReferenceItem | null>(null)
+  const [editName, setEditName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
+
+  // Delete modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<ReferenceItem | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   // Import modal
   const [showImportModal, setShowImportModal] = useState(false)
@@ -59,6 +73,53 @@ export default function ReferenceData() {
       setCreateError(err?.response?.data?.detail || 'Failed to create item')
     } finally {
       setCreating(false)
+    }
+  }
+
+  const openEditModal = (item: ReferenceItem) => {
+    setEditItem(item)
+    setEditName(item.name)
+    setEditError(null)
+    setShowEditModal(true)
+  }
+
+  const handleUpdate = async () => {
+    if (!editItem || !editName.trim()) return
+
+    setSaving(true)
+    setEditError(null)
+    try {
+      await api.patch(`/reference/${activeTab}/${editItem.id}`, { name: editName.trim() })
+      setShowEditModal(false)
+      setEditItem(null)
+      loadItems()
+    } catch (err: any) {
+      setEditError(err?.response?.data?.detail || 'Failed to update item')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const openDeleteModal = (item: ReferenceItem) => {
+    setItemToDelete(item)
+    setDeleteError(null)
+    setShowDeleteModal(true)
+  }
+
+  const handleDelete = async () => {
+    if (!itemToDelete) return
+
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await api.delete(`/reference/${activeTab}/${itemToDelete.id}`)
+      setShowDeleteModal(false)
+      setItemToDelete(null)
+      loadItems()
+    } catch (err: any) {
+      setDeleteError(err?.response?.data?.detail || 'Failed to delete item')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -111,7 +172,7 @@ export default function ReferenceData() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between w-full">
-              <CardTitle>Reference Lists</CardTitle>
+              <CardTitle>{getTabLabel(activeTab)} ({filteredItems.length})</CardTitle>
               {isAdmin && (
                 <div className="flex gap-2">
                   <Button
@@ -181,7 +242,7 @@ export default function ReferenceData() {
               />
             </div>
 
-            {/* Items List */}
+            {/* Items Table */}
             {loading ? (
               <div className="text-center py-12 text-text-muted">Loading...</div>
             ) : filteredItems.length === 0 ? (
@@ -209,22 +270,44 @@ export default function ReferenceData() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {filteredItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-surface hover:bg-app transition"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-text-primary truncate">
-                        {item.name}
-                      </div>
-                      <div className="text-xs text-text-muted">
-                        ID: {item.id.substring(0, 8)}...
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="mt-4">
+                <Table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Created</th>
+                      {isAdmin && <th>Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.map((item) => (
+                      <tr key={item.id}>
+                        <td className="font-medium text-text-primary">{item.name}</td>
+                        <td className="text-text-secondary text-sm">
+                          {item.created_at ? dayjs(item.created_at).format('MMM D, YYYY') : '—'}
+                        </td>
+                        {isAdmin && (
+                          <td>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => openEditModal(item)}
+                                className="text-brand hover:text-brand-dark text-sm font-medium"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => openDeleteModal(item)}
+                                className="text-semantic-error hover:opacity-80 text-sm font-medium"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
               </div>
             )}
           </CardBody>
@@ -267,6 +350,68 @@ export default function ReferenceData() {
             disabled={!newItemName.trim() || creating}
           >
             {creating ? 'Creating...' : 'Create'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal open={showEditModal} onClose={() => setShowEditModal(false)}>
+        <ModalHeader onClose={() => setShowEditModal(false)}>
+          Edit {getTabLabel(activeTab).slice(0, -1)}
+        </ModalHeader>
+        <ModalBody>
+          {editError && (
+            <div className="mb-4 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              {editError}
+            </div>
+          )}
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-text-primary">Name *</label>
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder={`Enter ${getTabLabel(activeTab).slice(0, -1).toLowerCase()} name...`}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && editName.trim()) handleUpdate()
+              }}
+            />
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowEditModal(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleUpdate} disabled={!editName.trim() || saving}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Delete Modal */}
+      <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
+        <ModalHeader onClose={() => setShowDeleteModal(false)}>Delete {getTabLabel(activeTab).slice(0, -1)}</ModalHeader>
+        <ModalBody>
+          {deleteError && (
+            <div className="mb-4 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              {deleteError}
+            </div>
+          )}
+          <p className="text-sm text-text-secondary">
+            Are you sure you want to delete <strong className="text-text-primary">{itemToDelete?.name}</strong>? This action cannot be undone.
+          </p>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowDeleteModal(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleDelete}
+            disabled={!itemToDelete || deleting}
+            className="bg-semantic-error hover:bg-semantic-error/90"
+          >
+            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </ModalFooter>
       </Modal>

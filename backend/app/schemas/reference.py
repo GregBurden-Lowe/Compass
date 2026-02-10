@@ -7,6 +7,10 @@ class ReferenceCreate(BaseModel):
     name: str
 
 
+class ReferenceUpdate(BaseModel):
+    name: str
+
+
 class ReferenceOut(BaseModel):
     id: UUID
     name: str
