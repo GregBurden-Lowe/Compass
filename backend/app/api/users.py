@@ -8,7 +8,9 @@ import secrets
 from app.api.deps import get_current_user, require_roles
 from app.core.security import get_password_hash
 from app.db.session import get_db
+from app.models.complaint import Complaint
 from app.models.enums import UserRole
+from app.models.task import Task
 from app.models.user import User
 from app.schemas.user import UserCreate, UserOut, UserUpdate
 
@@ -96,5 +98,32 @@ def reset_password(
     db.add(user)
     db.commit()
     return {"temporary_password": temp_password}
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.admin])),
+):
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot delete your own account",
+        )
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Unallocate complaints and tasks assigned to this user before deleting
+    db.query(Complaint).filter(Complaint.assigned_handler_id == user_id).update(
+        {Complaint.assigned_handler_id: None}, synchronize_session=False
+    )
+    db.query(Task).filter(Task.assigned_to_id == user_id).update(
+        {Task.assigned_to_id: None}, synchronize_session=False
+    )
+
+    db.delete(user)
+    db.commit()
 
 

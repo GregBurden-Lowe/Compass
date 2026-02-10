@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { User, UserRole } from '../types'
+import { useAuth } from '../context/AuthContext'
 import { TopBar } from '../components/layout'
 import { Button, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, ModalBody, ModalFooter, Input, Table } from '../components/ui'
 import dayjs from 'dayjs'
 
 export default function AdminUsers() {
+  const { user: currentUser } = useAuth()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showResetModal, setShowResetModal] = useState(false)
   const [showRecoveryModal, setShowRecoveryModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
   const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null)
@@ -167,6 +172,28 @@ export default function AdminUsers() {
     }
   }
 
+  const openDeleteModal = (user: User) => {
+    setUserToDelete(user)
+    setError(null)
+    setShowDeleteModal(true)
+  }
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return
+    setDeleting(true)
+    setError(null)
+    try {
+      await api.delete(`/users/${userToDelete.id}`)
+      setShowDeleteModal(false)
+      setUserToDelete(null)
+      loadUsers()
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || 'Failed to delete user')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const resetForm = () => {
     setFormData({
       email: '',
@@ -289,6 +316,14 @@ export default function AdminUsers() {
                           >
                             Recovery Codes
                           </button>
+                          {currentUser?.id !== user.id && (
+                            <button
+                              onClick={() => openDeleteModal(user)}
+                              className="text-semantic-error hover:opacity-80 text-sm font-medium"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -581,6 +616,39 @@ export default function AdminUsers() {
               </Button>
             </>
           )}
+        </ModalFooter>
+      </Modal>
+
+      {/* Delete User Modal */}
+      <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
+        <ModalHeader onClose={() => setShowDeleteModal(false)}>Delete User</ModalHeader>
+        <ModalBody>
+          {error && (
+            <div className="mb-4 rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              {error}
+            </div>
+          )}
+          <div className="space-y-3">
+            <p className="text-sm text-text-secondary">
+              Are you sure you want to delete <strong className="text-text-primary">{userToDelete?.full_name}</strong> ({userToDelete?.email})? This action cannot be undone.
+            </p>
+            <div className="rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
+              The user will lose access immediately. Any data linked to this user (e.g. assigned complaints) may need to be reassigned.
+            </div>
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowDeleteModal(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleDeleteUser}
+            disabled={!userToDelete || deleting}
+            className="bg-semantic-error hover:bg-semantic-error/90"
+          >
+            {deleting ? 'Deleting...' : 'Delete User'}
+          </Button>
         </ModalFooter>
       </Modal>
     </>
