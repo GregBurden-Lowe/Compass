@@ -172,7 +172,7 @@ export default function ReferenceData() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between w-full">
-              <CardTitle>{getTabLabel(activeTab)} ({filteredItems.length})</CardTitle>
+              <CardTitle>{getTabLabel(activeTab)}</CardTitle>
               {isAdmin && (
                 <div className="flex gap-2">
                   <Button
@@ -214,9 +214,6 @@ export default function ReferenceData() {
                   }`}
                 >
                   {getTabLabel(tab)}
-                  <span className="ml-2 inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-app text-[11px] font-semibold text-text-secondary border border-border">
-                    {tab === activeTab ? filteredItems.length : items.length}
-                  </span>
                 </button>
               ))}
             </div>
