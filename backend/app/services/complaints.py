@@ -233,6 +233,35 @@ def acknowledge(db: Session, complaint: Complaint, user_id: Optional[str], ackno
     return complaint
 
 
+def sync_acknowledgement_from_communication(
+    db: Session,
+    complaint: Complaint,
+    user_id: Optional[str],
+    occurred_at: datetime,
+) -> Complaint:
+    if complaint.acknowledged_at is not None:
+        complaint.ack_breached = False
+        return complaint
+
+    sent_at = occurred_at
+    if sent_at.tzinfo is None:
+        sent_at = sent_at.replace(tzinfo=timezone.utc)
+
+    if complaint.status in (ComplaintStatus.new, ComplaintStatus.reopened):
+        return acknowledge(db, complaint, user_id, acknowledged_at=sent_at)
+
+    ack_due = complaint.ack_due_at
+    if ack_due and ack_due.tzinfo is None:
+        ack_due = ack_due.replace(tzinfo=timezone.utc)
+    if ack_due and sent_at > ack_due:
+        add_event(db, complaint, "ack_sla_breached", "Acknowledgement SLA breached (sent late)", user_id)
+
+    complaint.acknowledged_at = sent_at
+    complaint.ack_breached = False
+    add_event(db, complaint, "acknowledged", "Acknowledgement logged from communication", user_id)
+    return complaint
+
+
 def start_investigation(db: Session, complaint: Complaint, user_id: Optional[str]) -> Complaint:
     if complaint.status not in (ComplaintStatus.acknowledged, ComplaintStatus.new, ComplaintStatus.reopened):
         return complaint
@@ -532,6 +561,8 @@ def add_communication_with_attachments(
     )
     db.add(comm)
     db.flush()
+    if kind == "acknowledgement" and not is_internal:
+        sync_acknowledgement_from_communication(db, complaint, user_id, occurred_at)
     for meta in attachment_files or []:
         attachment = Attachment(
             communication_id=comm.id,

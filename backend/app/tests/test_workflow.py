@@ -3,8 +3,9 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy.orm import Session
 
+from app.models.communication import Communication
 from app.models.complaint import Complaint
-from app.models.enums import ComplaintStatus, OutcomeType
+from app.models.enums import CommunicationChannel, CommunicationDirection, ComplaintStatus, OutcomeType
 from app.services import complaints as service
 
 
@@ -45,3 +46,26 @@ def test_acknowledge_and_close_flow(db_session: Session):
     service.close_complaint(db_session, complaint, None)
     assert complaint.status == ComplaintStatus.closed
 
+
+def test_acknowledgement_communication_updates_acknowledged_at(db_session: Session):
+    complaint = build_complaint()
+    complaint.ack_breached = True
+    db_session.add(complaint)
+    db_session.flush()
+
+    occurred_at = datetime(2024, 1, 2, 9, 30, tzinfo=timezone.utc)
+    comm = service.add_communication_with_attachments(
+        db_session,
+        complaint=complaint,
+        kind="acknowledgement",
+        channel=CommunicationChannel.email,
+        direction=CommunicationDirection.outbound,
+        summary="Acknowledgement sent",
+        occurred_at=occurred_at,
+        user_id=None,
+    )
+
+    assert isinstance(comm, Communication)
+    assert complaint.acknowledged_at == occurred_at
+    assert complaint.ack_breached is False
+    assert complaint.status == ComplaintStatus.acknowledged
