@@ -23,6 +23,7 @@ export default function ComplaintsList() {
   const [handlerFilter, setHandlerFilter] = useState<string>('all')
   const [overdueFilter, setOverdueFilter] = useState(false)
   const [vulnerableFilter, setVulnerableFilter] = useState(false)
+  const [showClosed, setShowClosed] = useState(false)
   const [sortField, setSortField] = useState<SortField>('received_at')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [page, setPage] = useState(1)
@@ -40,7 +41,10 @@ export default function ComplaintsList() {
 
     if (overdue !== null) setOverdueFilter(overdue === 'true')
     if (vulnerability !== null) setVulnerableFilter(vulnerability === 'true')
-    if (status) setStatusFilter(status)
+    if (status) {
+      setStatusFilter(status)
+      if (status === 'closed') setShowClosed(true)
+    }
     if (handler) setHandlerFilter(handler)
     if (q) setSearch(q)
     // reset to first page when arriving via deep-link
@@ -125,7 +129,12 @@ export default function ComplaintsList() {
     )
   }
 
-  const filteredComplaints = complaints.sort((a, b) => {
+  const filteredComplaints = useMemo(() => complaints
+    .filter((complaint) => {
+      const normalizedStatus = String(complaint.status || '').trim().toLowerCase().replace(/\s+/g, '_')
+      return showClosed || normalizedStatus !== 'closed'
+    })
+    .sort((a, b) => {
       let aVal: any, bVal: any
       
       switch (sortField) {
@@ -156,7 +165,7 @@ export default function ComplaintsList() {
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
       return 0
-    })
+    }), [complaints, showClosed, sortDirection, sortField])
 
   const isOverdue = (complaint: Complaint) => {
     const normalizedStatus = String(complaint.status || '').trim().toLowerCase().replace(/\s+/g, '_')
@@ -170,6 +179,7 @@ export default function ComplaintsList() {
     setHandlerFilter('all')
     setOverdueFilter(false)
     setVulnerableFilter(false)
+    setShowClosed(false)
     setPage(1)
   }
 
@@ -179,6 +189,7 @@ export default function ComplaintsList() {
     handlerFilter !== 'all',
     overdueFilter,
     vulnerableFilter,
+    showClosed,
   ].filter(Boolean).length
 
   return (
@@ -248,7 +259,11 @@ export default function ComplaintsList() {
                 <select
                   id="status-filter"
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  onChange={(e) => {
+                    const nextStatus = e.target.value
+                    setStatusFilter(nextStatus)
+                    if (nextStatus === 'closed') setShowClosed(true)
+                  }}
                   className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand"
                 >
                   <option value="all">All Statuses</option>
@@ -301,6 +316,15 @@ export default function ComplaintsList() {
                     className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
                   />
                   <span className="text-sm text-text-primary">Vulnerable only</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showClosed}
+                    onChange={(e) => setShowClosed(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-brand focus:ring-brand"
+                  />
+                  <span className="text-sm text-text-primary">Show closed</span>
                 </label>
               </div>
             </div>
