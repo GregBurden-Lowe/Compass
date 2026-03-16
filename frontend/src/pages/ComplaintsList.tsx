@@ -159,16 +159,9 @@ export default function ComplaintsList() {
     })
 
   const isOverdue = (complaint: Complaint) => {
-    if (complaint.status === 'Closed') return false
-    
-    const now = dayjs()
-    if (!complaint.acknowledged_at && complaint.ack_due_at) {
-      return dayjs(complaint.ack_due_at).isBefore(now)
-    }
-    if (!complaint.final_response_at && complaint.final_due_at) {
-      return dayjs(complaint.final_due_at).isBefore(now)
-    }
-    return false
+    const normalizedStatus = String(complaint.status || '').trim().toLowerCase().replace(/\s+/g, '_')
+    if (normalizedStatus === 'closed' || complaint.closed_at) return false
+    return Boolean(complaint.ack_breached || complaint.final_breached)
   }
 
   const clearFilters = () => {
