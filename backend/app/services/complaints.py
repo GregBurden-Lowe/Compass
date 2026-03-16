@@ -195,6 +195,11 @@ def add_event(db: Session, complaint: Complaint, event_type: str, description: s
 
 
 def refresh_breach_flags(complaint: Complaint) -> None:
+    if complaint.non_reportable:
+        complaint.ack_breached = False
+        complaint.final_breached = False
+        return
+
     now = utcnow()
     ack_due = complaint.ack_due_at
     final_due = complaint.final_due_at
@@ -738,4 +743,3 @@ def update_redress_payment(
             None,
         )
     return payment
-
