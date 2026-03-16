@@ -195,7 +195,7 @@ def add_event(db: Session, complaint: Complaint, event_type: str, description: s
 
 
 def refresh_breach_flags(complaint: Complaint) -> None:
-    if complaint.non_reportable:
+    if complaint.non_reportable or complaint.status == ComplaintStatus.closed:
         complaint.ack_breached = False
         complaint.final_breached = False
         return
