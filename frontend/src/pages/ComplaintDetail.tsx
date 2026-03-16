@@ -2390,64 +2390,65 @@ export default function ComplaintDetail() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="comm-kind" className="block text-xs font-medium text-text-primary">Tag</label>
-              <select
-                id="comm-kind"
-                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
-                value={commForm.is_internal ? 'note_decision' : commForm.kind}
-                onChange={(e) => {
-                  const nextKind = e.target.value
-                  setCommForm({
-                    ...commForm,
-                    kind: nextKind,
-                    is_final_response: nextKind === 'final_response' ? true : commForm.is_final_response,
-                  })
-                }}
-                disabled={commForm.is_internal}
-              >
-                <option value="general">General</option>
-                <option value="acknowledgement">Acknowledgement</option>
-                <option value="final_response">Final Response</option>
-                <option value="progress_update">Progress Update</option>
-                {features.enable_delay_response_kind && <option value="delay_response_8week">Delay Response (8-week)</option>}
-                <option value="phone_call">Phone call</option>
-                <option value="letter">Letter</option>
-              </select>
-              <p className="text-xs text-text-muted">Helps keep the Communications tab scannable (shown as a chip).</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="comm-channel" className="block text-xs font-medium text-text-primary">Channel *</label>
-                <select
-                  id="comm-channel"
-                  className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
-                  value={commForm.channel}
-                  onChange={(e) => setCommForm({ ...commForm, channel: e.target.value })}
-                  disabled={commForm.is_internal}
-                >
-                  <option value="email">Email</option>
-                  <option value="phone">Phone</option>
-                  <option value="letter">Letter</option>
-                  <option value="web">Web Form</option>
-                  <option value="third_party">Third Party</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="comm-direction" className="block text-xs font-medium text-text-primary">Direction *</label>
-                <select
-                  id="comm-direction"
-                  className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
-                  value={commForm.direction}
-                  onChange={(e) => setCommForm({ ...commForm, direction: e.target.value })}
-                  disabled={commForm.is_internal}
-                >
-                  <option value="inbound">Inbound</option>
-                  <option value="outbound">Outbound</option>
-                </select>
-              </div>
-            </div>
+            {!commForm.is_internal && (
+              <>
+                <div className="space-y-2">
+                  <label htmlFor="comm-kind" className="block text-xs font-medium text-text-primary">Tag</label>
+                  <select
+                    id="comm-kind"
+                    className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    value={commForm.kind}
+                    onChange={(e) => {
+                      const nextKind = e.target.value
+                      setCommForm({
+                        ...commForm,
+                        kind: nextKind,
+                        is_final_response: nextKind === 'final_response' ? true : commForm.is_final_response,
+                      })
+                    }}
+                  >
+                    <option value="general">General</option>
+                    <option value="acknowledgement">Acknowledgement</option>
+                    <option value="final_response">Final Response</option>
+                    <option value="progress_update">Progress Update</option>
+                    {features.enable_delay_response_kind && <option value="delay_response_8week">Delay Response (8-week)</option>}
+                    <option value="phone_call">Phone call</option>
+                    <option value="letter">Letter</option>
+                  </select>
+                  <p className="text-xs text-text-muted">Helps keep the Communications tab scannable (shown as a chip).</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="comm-channel" className="block text-xs font-medium text-text-primary">Channel *</label>
+                    <select
+                      id="comm-channel"
+                      className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                      value={commForm.channel}
+                      onChange={(e) => setCommForm({ ...commForm, channel: e.target.value })}
+                    >
+                      <option value="email">Email</option>
+                      <option value="phone">Phone</option>
+                      <option value="letter">Letter</option>
+                      <option value="web">Web Form</option>
+                      <option value="third_party">Third Party</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="comm-direction" className="block text-xs font-medium text-text-primary">Direction *</label>
+                    <select
+                      id="comm-direction"
+                      className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                      value={commForm.direction}
+                      onChange={(e) => setCommForm({ ...commForm, direction: e.target.value })}
+                    >
+                      <option value="inbound">Inbound</option>
+                      <option value="outbound">Outbound</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="space-y-2">
               <label className="block text-xs font-medium text-text-primary">Date & Time *</label>
