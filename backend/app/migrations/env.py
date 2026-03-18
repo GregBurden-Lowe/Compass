@@ -63,10 +63,17 @@ def run_migrations_online():
             # Don't block migrations if the check fails (e.g., permissions/DB differences).
             pass
 
-        context.configure(connection=connection, target_metadata=target_metadata)
+        # transaction_per_migration=True: each migration runs in its own
+        # BEGIN/COMMIT block and stamps alembic_version immediately on success.
+        # This avoids a DigitalOcean managed-PostgreSQL issue where a single
+        # outer transaction wrapping all DDL silently fails to commit.
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            transaction_per_migration=True,
+        )
 
-        with context.begin_transaction():
-            context.run_migrations()
+        context.run_migrations()
 
 
 if context.is_offline_mode():
