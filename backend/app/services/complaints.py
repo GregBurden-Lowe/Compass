@@ -17,6 +17,7 @@ from app.models.redress import RedressPayment
 from app.models.broker_referral import BrokerReferral
 from app.models.enums import (
     ComplaintStatus,
+    ComplaintRegime,
     OutcomeType,
     RedressPaymentStatus,
     RedressType,
@@ -27,6 +28,26 @@ from app.models.enums import (
 )
 from app.models.user import User
 from app.utils.dates import add_business_days, add_weeks, utcnow
+
+# ---------------------------------------------------------------------------
+# Insurer → regime mapping
+# Rule: Devon Bay Insurance Company → non_admitted; everything else → uk_regulated.
+# Match is case-insensitive and strips leading/trailing whitespace.
+# ---------------------------------------------------------------------------
+_NON_ADMITTED_INSURERS: frozenset[str] = frozenset({
+    "devon bay insurance company limited",
+})
+
+
+def _regime_for_insurer(insurer: str | None) -> ComplaintRegime:
+    """Derive the complaint regime from the insurer name.
+
+    Devon Bay Insurance Company is non-admitted (internal tracking only).
+    All other insurers — or complaints with no insurer — are UK Regulated (FCA DISP).
+    """
+    if insurer and insurer.strip().lower() in _NON_ADMITTED_INSURERS:
+        return ComplaintRegime.non_admitted
+    return ComplaintRegime.uk_regulated
 from app.core.config import get_settings
 
 # D1 checklist keys required when REQUIRE_D1_CHECKLIST is on
@@ -157,6 +178,11 @@ def create_complaint(
         complaint_data["vulnerability_flag"] = True
     if complaint_data.get("category") == "Other / Unclassified" and not (complaint_data.get("reason") or "").strip():
         raise ValueError("Reason is required when category is Other / Unclassified")
+    # Derive regime_type from the insurer — client input is intentionally ignored.
+    # Rule: Devon Bay Insurance Company → non_admitted; all others → uk_regulated.
+    regime = _regime_for_insurer(complaint_data.get("insurer"))
+    complaint_data["regime_type"] = regime
+    complaint_data["fca_complaint"] = (regime == ComplaintRegime.uk_regulated)
     # Reference generation is concurrency-safe via complaint_reference_counter,
     # but keep a small retry loop as belt-and-braces (e.g., if counter table is missing during deploy).
     last_exc: Exception | None = None
@@ -774,3 +800,49 @@ def update_redress_payment(
             None,
         )
     return payment
+
+
+def reclassify_complaint(
+    db: Session,
+    complaint: Complaint,
+    new_regime: str,
+    rationale: str,
+    user_id: Optional[str],
+) -> Complaint:
+    """Change the regime classification of a complaint.
+
+    Workflow, SLA deadlines, and all validation rules are unaffected —
+    both regimes follow the same operational process.  This function only
+    updates the classification label, keeps the deprecated fca_complaint
+    boolean in sync, and writes a full audit trail.
+
+    Raises ValueError for hard-blocked transitions (closed complaint,
+    FOS-referred complaint being moved to non_admitted).
+    """
+    if complaint.status == ComplaintStatus.closed:
+        raise ValueError(
+            "Cannot reclassify a closed complaint. Reopen it first."
+        )
+    if new_regime == ComplaintRegime.non_admitted and complaint.fos_complaint:
+        raise ValueError(
+            "Cannot reclassify to Non-Admitted: this complaint has been referred to the FOS."
+        )
+
+    old_regime = complaint.regime_type
+    if new_regime == old_regime:
+        return complaint
+
+    complaint.regime_type = new_regime
+    # Keep deprecated fca_complaint in sync for legacy BI consumers
+    complaint.fca_complaint = (new_regime == ComplaintRegime.uk_regulated)
+
+    audit_change(
+        db, str(complaint.id), "complaint", "regime_type",
+        old_regime, new_regime, user_id,
+    )
+    add_event(
+        db, complaint, "reclassified",
+        f"Regime changed from {old_regime} to {new_regime}. Rationale: {rationale}",
+        user_id,
+    )
+    return complaint

@@ -12,7 +12,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.models.base import Base
-from app.models.enums import ComplaintStatus
+from app.models.enums import ComplaintStatus, ComplaintRegime
 from app.models.user import User
 
 
@@ -24,6 +24,12 @@ class Complaint(Base):
     description = Column(String(2000), nullable=False)
     category = Column(String(255), nullable=False)
     reason = Column(String(255), nullable=True)
+    regime_type = Column(
+        SqlEnum(ComplaintRegime, name="complaint_regime"),
+        nullable=False,
+        default=ComplaintRegime.uk_regulated,
+        index=True,
+    )
     fca_complaint = Column(Boolean, default=False, nullable=False)
     fca_rationale = Column(String(1000), nullable=True)
     fos_complaint = Column(Boolean, default=False, nullable=False)
@@ -72,5 +78,6 @@ class Complaint(Base):
         return self.assigned_handler.full_name if self.assigned_handler else None
 
 
-Index("ix_complaint_filters", Complaint.status, Complaint.assigned_handler_id, Complaint.received_at)
+Index("ix_complaint_filters", Complaint.regime_type, Complaint.status, Complaint.assigned_handler_id, Complaint.received_at)
+Index("ix_complaint_regime_status", Complaint.regime_type, Complaint.status)
 

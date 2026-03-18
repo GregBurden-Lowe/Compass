@@ -1,6 +1,6 @@
 # Web Application Stack Template
 
-This document outlines the technology stack, architecture patterns, and reusable components used in this application. Use this as a template for creating new web applications with similar requirements.
+This document outlines the technology stack, architecture patterns, and reusable components that form the foundations of a typical web application. Use it as a guide or template when building new apps with similar requirements (auth, API, admin screens, deployment).
 
 ## Table of Contents
 
@@ -36,7 +36,8 @@ This document outlines the technology stack, architecture patterns, and reusable
 - **Framework**: React 18.2.0
 - **Language**: TypeScript 5.3.3
 - **Build Tool**: Vite 5.0.0
-- **UI Library**: Material-UI (MUI) 5.15.21
+- **Styling**: Tailwind CSS 3.4.x
+- **UI**: Custom components (Button, Card, Table, Modal, Input, Combobox, etc.) — no MUI
 - **Routing**: React Router DOM 6.23.1
 - **HTTP Client**: Axios 1.7.2
 - **Date Handling**: dayjs 1.11.10
@@ -127,7 +128,8 @@ project-root/
 │   │   │   ├── auth.py         # Authentication endpoints
 │   │   │   ├── deps.py         # Dependency injection (auth, DB)
 │   │   │   ├── router.py       # Main API router
-│   │   │   └── *.py            # Domain-specific routes
+│   │   │   ├── users.py        # User CRUD (optional, for admin)
+│   │   │   └── *.py            # Domain routes (e.g. items, lookups)
 │   │   ├── core/               # Core configuration
 │   │   │   ├── config.py       # Settings management (Pydantic)
 │   │   │   ├── security.py    # JWT, password hashing
@@ -162,11 +164,11 @@ project-root/
 │   │   ├── api/                # API client configuration
 │   │   │   └── client.ts       # Axios instance, interceptors
 │   │   ├── components/         # Reusable React components
+│   │   │   ├── layout/         # TopBar, Sidebar, etc.
+│   │   │   └── ui/             # Button, Card, Table, Modal, Input, Combobox
 │   │   ├── context/            # React Context providers
 │   │   │   └── AuthContext.tsx # Authentication state
-│   │   ├── pages/              # Page components
-│   │   │   ├── Dashboard.tsx
-│   │   │   └── *.tsx
+│   │   ├── pages/              # Page components (e.g. Home, Dashboard, *.tsx)
 │   │   ├── types.ts            # TypeScript type definitions
 │   │   ├── App.tsx             # Main app component
 │   │   └── main.tsx            # Entry point
@@ -459,6 +461,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   </ProtectedRoute>
 } />
 ```
+
+#### Admin List / Table Pattern
+
+**Table with Edit and Delete** (any list or CRUD screen):
+- Use shared `Table` component with columns (e.g. Name, Created, Actions).
+- **Edit**: modal with form, PATCH to `/resource/:id`, then refresh list.
+- **Delete**: confirmation modal, DELETE to `/resource/:id`, then refresh list.
+- **Create**: "Add New" button opens create modal; POST then refresh.
+- Restrict actions by role (e.g. `isAdmin`); hide Delete for current user where appropriate.
+- Backend: standard REST — GET list, POST create, PATCH update, DELETE with 204; unallocate or reassign related data before delete when needed.
 
 #### Form Handling Pattern
 

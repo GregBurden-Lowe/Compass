@@ -25,6 +25,7 @@ from app.models.redress import RedressPayment
 from app.models.user import User
 from app.models.enums import (
     ComplaintStatus,
+    ComplaintRegime,
     UserRole,
     CommunicationChannel,
     CommunicationDirection,
@@ -54,6 +55,7 @@ from app.schemas.complaint import (
     BrokerReferralOut,
     EscalateRequest,
     ReferToFosRequest,
+    ReclassifyRequest,
 )
 from app.models.task import Task
 from app.services import complaints as service
@@ -117,6 +119,7 @@ def list_complaints(
     search: Optional[str] = None,
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
+    regime_type: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
     db: Session = Depends(get_db),
@@ -145,6 +148,12 @@ def list_complaints(
         query = query.filter(Complaint.received_at <= date_to)
     if overdue:
         query = query.filter(or_(Complaint.ack_breached == True, Complaint.final_breached == True))  # noqa: E712
+    if regime_type:
+        try:
+            regime_enum = ComplaintRegime(regime_type)
+            query = query.filter(Complaint.regime_type == regime_enum)
+        except ValueError:
+            pass  # silently ignore unknown regime values
     if outcome:
         query = query.join(Complaint.outcome).filter(Complaint.outcome.has(outcome=outcome))
     if search:
@@ -338,6 +347,21 @@ def complaint_metrics(
         },
         # (optional) keep legacy counts if you still use them elsewhere
         "counts": {"total": total, "open": len(open_cases), "closed": len(closed_cases)},
+        # Regime-split breakdown (additive — existing consumers ignore unknown keys)
+        "by_regime": {
+            regime.value: {
+                "open": len([c for c in open_cases if c.regime_type == regime]),
+                "ack_breach_pct": _safe_pct(
+                    len([c for c in open_cases if c.regime_type == regime and c.ack_breached]),
+                    len([c for c in open_cases if c.regime_type == regime]),
+                ),
+                "final_breach_pct": _safe_pct(
+                    len([c for c in open_cases if c.regime_type == regime and c.final_breached]),
+                    len([c for c in open_cases if c.regime_type == regime]),
+                ),
+            }
+            for regime in ComplaintRegime
+        },
     }
 
 
@@ -935,6 +959,28 @@ def refer_to_fos(
     complaint = _get_complaint(db, complaint_id)
     try:
         service.refer_to_fos(db, complaint, payload.fos_reference, payload.fos_referred_at, str(current_user.id))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    db.commit()
+    db.refresh(complaint)
+    return complaint
+
+
+@router.post("/{complaint_id}/reclassify", response_model=ComplaintOut)
+def reclassify_complaint(
+    complaint_id: str,
+    payload: ReclassifyRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_manager])),
+):
+    """Change the regime classification of a complaint (admin / complaints_manager only).
+
+    Both UK Regulated and Non-Admitted complaints follow the same operational workflow,
+    so this only updates the classification label and writes an audit trail.
+    """
+    complaint = _get_complaint(db, complaint_id)
+    try:
+        service.reclassify_complaint(db, complaint, payload.regime_type, payload.rationale, str(current_user.id))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     db.commit()

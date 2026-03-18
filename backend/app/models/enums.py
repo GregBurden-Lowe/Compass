@@ -70,3 +70,8 @@ class ActionStatus(str, Enum):
     in_progress = "in_progress"
     completed = "completed"
 
+
+class ComplaintRegime(str, Enum):
+    uk_regulated = "uk_regulated"
+    non_admitted = "non_admitted"
+

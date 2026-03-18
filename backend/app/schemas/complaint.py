@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.models.enums import (
     ComplaintStatus,
+    ComplaintRegime,
     CommunicationChannel,
     CommunicationDirection,
     TaskStatus,
@@ -60,7 +61,8 @@ class ComplaintBase(BaseModel):
     description: str
     category: str
     reason: Optional[str] = None
-    fca_complaint: bool = False
+    regime_type: str = ComplaintRegime.uk_regulated  # classification; default preserves existing behaviour
+    # fca_complaint is intentionally excluded — derived by backend from regime_type, never written by clients
     fca_rationale: Optional[str] = None
     fos_complaint: bool = False
     fos_reference: Optional[str] = None
@@ -85,7 +87,8 @@ class ComplaintUpdate(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     reason: Optional[str] = None
-    fca_complaint: Optional[bool] = None
+    # fca_complaint intentionally omitted — backend-managed derived field
+    # regime_type intentionally omitted — use dedicated /reclassify endpoint
     vulnerability_flag: Optional[bool] = None
     vulnerability_notes: Optional[str] = None
     product: Optional[str] = None
@@ -241,12 +244,13 @@ class ComplaintOut(BaseModel):
     id: UUID
     reference: str
     status: ComplaintStatus
+    regime_type: str  # authoritative classification field
     source: str
     received_at: datetime
     description: str
     category: str
     reason: Optional[str]
-    fca_complaint: bool
+    fca_complaint: bool  # deprecated — kept for BI backward compat; use regime_type in application code
     fos_complaint: bool
     fos_reference: Optional[str]
     fos_referred_at: Optional[datetime]
@@ -322,4 +326,12 @@ class BrokerReferralOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ReclassifyRequest(BaseModel):
+    """Request body for POST /complaints/{id}/reclassify.
+    Only admin and complaints_manager roles may call this endpoint.
+    """
+    regime_type: str
+    rationale: str = Field(..., min_length=10, description="Reason for reclassification (min 10 chars)")
 
