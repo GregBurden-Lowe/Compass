@@ -1,6 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, EmailStr
-from app.models.enums import UserRole
+from app.models.enums import UserRole, DataScope
 from uuid import UUID
 
 
@@ -12,6 +12,7 @@ class UserBase(BaseModel):
     mfa_enabled: bool = False
     mfa_skip_count: int = 0
     must_change_password: bool = False
+    data_scope: DataScope = DataScope.all
 
 
 class UserCreate(UserBase):
@@ -24,6 +25,7 @@ class UserUpdate(BaseModel):
     role: UserRole | None = None
     is_active: bool | None = None
     password: str | None = None
+    data_scope: DataScope | None = None
 
 
 class UserOut(UserBase):

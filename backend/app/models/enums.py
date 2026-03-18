@@ -75,3 +75,9 @@ class ComplaintRegime(str, Enum):
     uk_regulated = "uk_regulated"
     non_admitted = "non_admitted"
 
+
+class DataScope(str, Enum):
+    uk_regulated = "uk_regulated"
+    non_admitted = "non_admitted"
+    all          = "all"
+

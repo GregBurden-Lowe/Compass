@@ -1,5 +1,8 @@
 export type UserRole = 'admin' | 'complaints_handler' | 'complaints_manager' | 'reviewer' | 'read_only'
 
+/** Controls which regime's complaints a user can see. Independent of role. */
+export type DataScope = 'uk_regulated' | 'non_admitted' | 'all'
+
 /** Complaint regime classification — used for FCA reporting and UI labelling only.
  *  Both regimes follow identical operational workflows (SLA, D1, status transitions).
  */
@@ -10,6 +13,7 @@ export interface User {
   email: string
   full_name: string
   role: UserRole
+  data_scope: DataScope
   is_active: boolean
   mfa_enabled: boolean
   must_change_password?: boolean

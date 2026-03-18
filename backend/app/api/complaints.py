@@ -26,6 +26,7 @@ from app.models.user import User
 from app.models.enums import (
     ComplaintStatus,
     ComplaintRegime,
+    DataScope,
     UserRole,
     CommunicationChannel,
     CommunicationDirection,
@@ -126,6 +127,11 @@ def list_complaints(
     current_user: User = Depends(get_current_user),
 ):
     query = db.query(Complaint).options(joinedload(Complaint.communications).joinedload(Communication.attachments))
+
+    # Enforce data scope: restrict visible complaints to the user's assigned regime
+    if current_user.data_scope != DataScope.all:
+        query = query.filter(Complaint.regime_type == current_user.data_scope)
+
     if status_filter:
         try:
             # Accept either canonical enum values (e.g. "in_investigation") or UI labels (e.g. "In Investigation")
@@ -190,15 +196,18 @@ def complaint_metrics(
     now = utcnow()
 
     # Pull complaints + relationships needed for these metrics
-    complaints = (
+    # Scope filter: users with a restricted data_scope only see their regime's stats
+    metrics_q = (
         db.query(Complaint)
         .options(
             joinedload(Complaint.communications).joinedload(Communication.attachments),
             joinedload(Complaint.outcome),
             joinedload(Complaint.redress_payments),
         )
-        .all()
     )
+    if current_user.data_scope != DataScope.all:
+        metrics_q = metrics_q.filter(Complaint.regime_type == current_user.data_scope)
+    complaints = metrics_q.all()
 
     total = len(complaints)
     open_cases = [c for c in complaints if c.status != ComplaintStatus.closed]

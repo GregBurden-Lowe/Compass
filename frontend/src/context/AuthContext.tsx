@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { api } from '../api/client'
-import { UserRole, User } from '../types'
+import { UserRole, DataScope, User } from '../types'
 
 type AuthState = {
   token: string | null
   role: UserRole | null
+  dataScope: DataScope | null
   name: string | null
   userId: string | null
   user: User | null
@@ -24,6 +25,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, setState] = useState<AuthState>({
     token: null,
     role: null,
+    dataScope: null,
     name: null,
     userId: null,
     user: null,
@@ -40,8 +42,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Demo mode stores a fake token; don't validate against backend.
       if (import.meta.env.VITE_DEMO_MODE === 'true') {
-        if (token && role) setState({ token, role, name, userId, user: null, mustChangePassword: false, ready: true })
-        else setState({ token: null, role: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
+        if (token && role) setState({ token, role, dataScope: 'all', name, userId, user: null, mustChangePassword: false, ready: true })
+        else setState({ token: null, role: null, dataScope: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
         return
       }
 
@@ -52,12 +54,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
           const me = await api.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
           const validatedRole = me.data.role as UserRole
+          const validatedScope = (me.data.data_scope ?? 'all') as DataScope
           localStorage.setItem('role', validatedRole)
+          localStorage.setItem('dataScope', validatedScope)
           localStorage.setItem('name', me.data.full_name)
           localStorage.setItem('userId', me.data.id)
           setState({
             token,
             role: validatedRole,
+            dataScope: validatedScope,
             name: me.data.full_name,
             userId: me.data.id,
             user: me.data,
@@ -67,14 +72,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return
         } catch {
           localStorage.clear()
-          setState({ token: null, role: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
+          setState({ token: null, role: null, dataScope: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
           return
         }
       }
 
       // No token: clear any partial/stale state.
       if (role || name || userId) localStorage.clear()
-      setState({ token: null, role: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
+      setState({ token: null, role: null, dataScope: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
     }
 
     load()
@@ -85,12 +90,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!token || import.meta.env.VITE_DEMO_MODE === 'true') return
     const me = await api.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
     const validatedRole = me.data.role as UserRole
+    const validatedScope = (me.data.data_scope ?? 'all') as DataScope
     localStorage.setItem('role', validatedRole)
+    localStorage.setItem('dataScope', validatedScope)
     localStorage.setItem('name', me.data.full_name)
     localStorage.setItem('userId', me.data.id)
     setState({
       token,
       role: validatedRole,
+      dataScope: validatedScope,
       name: me.data.full_name,
       userId: me.data.id,
       user: me.data,
@@ -113,16 +121,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem('token', token)
     const me = await api.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } })
     const role = me.data.role as UserRole
+    const dataScope = (me.data.data_scope ?? 'all') as DataScope
     localStorage.setItem('role', role)
+    localStorage.setItem('dataScope', dataScope)
     localStorage.setItem('name', me.data.full_name)
     localStorage.setItem('userId', me.data.id)
-    setState({ token, role, name: me.data.full_name, userId: me.data.id, user: me.data, mustChangePassword: !!me.data.must_change_password, ready: true })
+    setState({ token, role, dataScope, name: me.data.full_name, userId: me.data.id, user: me.data, mustChangePassword: !!me.data.must_change_password, ready: true })
     return res.data
   }
 
   const logout = () => {
     localStorage.clear()
-    setState({ token: null, role: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
+    setState({ token: null, role: null, dataScope: null, name: null, userId: null, user: null, mustChangePassword: false, ready: true })
   }
 
   return <AuthContext.Provider value={{ ...state, login, logout, refreshMe }}>{children}</AuthContext.Provider>

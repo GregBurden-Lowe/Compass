@@ -3,7 +3,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.sql import func
 
 from app.models.base import Base
-from app.models.enums import UserRole
+from app.models.enums import UserRole, DataScope
 
 
 class User(Base):
@@ -11,6 +11,7 @@ class User(Base):
     full_name = Column(String(255), nullable=False)
     hashed_password = Column(String(255), nullable=False)
     role = Column(SqlEnum(UserRole), nullable=False, default=UserRole.read_only)
+    data_scope = Column(SqlEnum(DataScope, name="data_scope"), nullable=False, default=DataScope.all)
     is_active = Column(Boolean, default=True, nullable=False)
     mfa_enabled = Column(Boolean, default=False, nullable=False)
     totp_secret = Column(String(64), nullable=True)

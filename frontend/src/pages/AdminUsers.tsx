@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
-import { User, UserRole } from '../types'
+import { User, UserRole, DataScope } from '../types'
 import { useAuth } from '../context/AuthContext'
 import { TopBar } from '../components/layout'
 import { Button, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, ModalBody, ModalFooter, Input, Table } from '../components/ui'
@@ -31,6 +31,7 @@ export default function AdminUsers() {
     email: '',
     full_name: '',
     role: 'complaints_handler' as UserRole,
+    data_scope: 'all' as DataScope,
     password: '',
     is_active: true,
   })
@@ -84,6 +85,7 @@ export default function AdminUsers() {
         email: formData.email,
         full_name: formData.full_name,
         role: formData.role,
+        data_scope: formData.data_scope,
         is_active: formData.is_active,
         ...(formData.password ? { password: formData.password } : {}),
       })
@@ -125,6 +127,7 @@ export default function AdminUsers() {
       email: user.email,
       full_name: user.full_name,
       role: user.role,
+      data_scope: user.data_scope ?? 'all',
       password: '',
       is_active: user.is_active,
     })
@@ -199,10 +202,17 @@ export default function AdminUsers() {
       email: '',
       full_name: '',
       role: 'complaints_handler',
+      data_scope: 'all',
       password: '',
       is_active: true,
     })
     setError(null)
+  }
+
+  const getScopeBadge = (scope: DataScope) => {
+    if (scope === 'uk_regulated') return { label: 'UK Regulated', cls: 'bg-blue-100 text-blue-700' }
+    if (scope === 'non_admitted') return { label: 'Non-Admitted', cls: 'bg-gray-100 text-gray-600' }
+    return { label: 'All', cls: 'bg-semantic-success/10 text-semantic-success' }
   }
 
   const getRoleBadgeColor = (role: UserRole) => {
@@ -251,6 +261,7 @@ export default function AdminUsers() {
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
+                    <th>Scope</th>
                     <th>Status</th>
                     <th>MFA</th>
                     <th>Created</th>
@@ -266,6 +277,13 @@ export default function AdminUsers() {
                         <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium capitalize ${getRoleBadgeColor(user.role)}`}>
                           {user.role.replace(/_/g, ' ')}
                         </span>
+                      </td>
+                      <td>
+                        {(() => { const s = getScopeBadge(user.data_scope ?? 'all'); return (
+                          <span className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium ${s.cls}`}>
+                            {s.label}
+                          </span>
+                        )})()}
                       </td>
                       <td>
                         {user.is_active ? (
@@ -388,6 +406,21 @@ export default function AdminUsers() {
             </div>
 
             <div className="space-y-2">
+              <label htmlFor="create-scope" className="block text-xs font-medium text-text-primary">Data Scope *</label>
+              <select
+                id="create-scope"
+                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={formData.data_scope}
+                onChange={(e) => setFormData({ ...formData, data_scope: e.target.value as DataScope })}
+              >
+                <option value="all">All (both regimes)</option>
+                <option value="uk_regulated">UK Regulated only</option>
+                <option value="non_admitted">Non-Admitted only</option>
+              </select>
+              <p className="text-xs text-text-muted">Controls which complaints this user can see</p>
+            </div>
+
+            <div className="space-y-2">
               <label htmlFor="create-password" className="block text-xs font-medium text-text-primary">Initial Password *</label>
               <Input
                 id="create-password"
@@ -462,6 +495,21 @@ export default function AdminUsers() {
                 <option value="read_only">Read Only</option>
                 <option value="admin">Admin</option>
               </select>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="edit-scope" className="block text-xs font-medium text-text-primary">Data Scope *</label>
+              <select
+                id="edit-scope"
+                className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                value={formData.data_scope}
+                onChange={(e) => setFormData({ ...formData, data_scope: e.target.value as DataScope })}
+              >
+                <option value="all">All (both regimes)</option>
+                <option value="uk_regulated">UK Regulated only</option>
+                <option value="non_admitted">Non-Admitted only</option>
+              </select>
+              <p className="text-xs text-text-muted">Controls which complaints this user can see</p>
             </div>
 
             <div className="space-y-2">
