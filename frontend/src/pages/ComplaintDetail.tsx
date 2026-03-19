@@ -154,13 +154,6 @@ export default function ComplaintDetail() {
   const [referringToFos, setReferringToFos] = useState(false)
   const [fosError, setFosError] = useState<string | null>(null)
 
-  // Reclassify modal
-  const [showReclassifyModal, setShowReclassifyModal] = useState(false)
-  const [reclassifyRegime, setReclassifyRegime] = useState<'uk_regulated' | 'non_admitted'>('uk_regulated')
-  const [reclassifyRationale, setReclassifyRationale] = useState('')
-  const [reclassifying, setReclassifying] = useState(false)
-  const [reclassifyError, setReclassifyError] = useState<string | null>(null)
-
   useEffect(() => {
     if (!id) return
     loadComplaint()
@@ -814,30 +807,6 @@ export default function ComplaintDetail() {
     }
   }
 
-  const handleReclassify = async () => {
-    if (!id || !complaint) return
-    if (reclassifyRationale.trim().length < 10) {
-      setReclassifyError('Rationale must be at least 10 characters.')
-      return
-    }
-    setReclassifying(true)
-    setReclassifyError(null)
-    try {
-      await api.post(`/complaints/${id}/reclassify`, {
-        regime_type: reclassifyRegime,
-        rationale: reclassifyRationale.trim(),
-      })
-      setShowReclassifyModal(false)
-      setReclassifyRationale('')
-      loadComplaint()
-      setUiMessage({ type: 'success', text: 'Complaint reclassified successfully.' })
-    } catch (err: any) {
-      setReclassifyError(err?.response?.data?.detail || 'Failed to reclassify complaint.')
-    } finally {
-      setReclassifying(false)
-    }
-  }
-
   const openEditModal = () => {
     if (!complaint) return
     setEditError(null)
@@ -962,27 +931,9 @@ export default function ComplaintDetail() {
         actions={
           <div className="flex items-center gap-3">
             <StatusChip status={complaint.status} />
-            {/* Regime badge — informational only */}
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-              complaint.regime_type === 'uk_regulated'
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-gray-100 text-gray-600'
-            }`}>
-              {complaint.regime_type === 'uk_regulated' ? 'FCA DISP' : 'Non-Admitted'}
-            </span>
             {user?.role !== 'read_only' && (
               <Button variant="secondary" onClick={openEditModal}>
                 Edit Complaint
-              </Button>
-            )}
-            {(user?.role === 'admin' || user?.role === 'complaints_manager') && (
-              <Button variant="secondary" onClick={() => {
-                setReclassifyRegime(complaint.regime_type as 'uk_regulated' | 'non_admitted')
-                setReclassifyRationale('')
-                setReclassifyError(null)
-                setShowReclassifyModal(true)
-              }}>
-                Reclassify
               </Button>
             )}
             {user?.role !== 'read_only' && (
@@ -3125,81 +3076,6 @@ export default function ComplaintDetail() {
         </ModalFooter>
       </Modal >
 
-      {/* Reclassify Complaint Modal */}
-      <Modal open={showReclassifyModal} onClose={() => { setShowReclassifyModal(false); setReclassifyError(null) }}>
-        <ModalHeader onClose={() => { setShowReclassifyModal(false); setReclassifyError(null) }}>
-          Reclassify Complaint
-        </ModalHeader>
-        <ModalBody>
-          <div className="space-y-4">
-            {reclassifyError && (
-              <div className="rounded-lg border border-semantic-error/30 bg-semantic-error/5 p-3 text-sm text-semantic-error">
-                {reclassifyError}
-              </div>
-            )}
-            <div className="rounded-lg border border-border bg-surface p-3 text-sm text-text-secondary">
-              Changing the complaint type affects FCA regulatory reporting only. SLA deadlines, workflow, and all other settings are unaffected.
-            </div>
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">Complaint Type</label>
-              <div className="flex gap-6">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="reclassify_regime"
-                    value="uk_regulated"
-                    checked={reclassifyRegime === 'uk_regulated'}
-                    onChange={() => setReclassifyRegime('uk_regulated')}
-                    className="h-4 w-4 text-brand border-border focus:ring-2 focus:ring-brand/15"
-                  />
-                  <span className="text-sm text-text-primary">UK Regulated (FCA DISP)</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="reclassify_regime"
-                    value="non_admitted"
-                    checked={reclassifyRegime === 'non_admitted'}
-                    onChange={() => setReclassifyRegime('non_admitted')}
-                    className="h-4 w-4 text-brand border-border focus:ring-2 focus:ring-brand/15"
-                  />
-                  <span className="text-sm text-text-primary">Non-Admitted (Internal)</span>
-                </label>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-text-primary">
-                Rationale <span className="text-text-muted font-normal">(required — written to audit log)</span>
-              </label>
-              <textarea
-                className="w-full min-h-[100px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
-                value={reclassifyRationale}
-                onChange={(e) => setReclassifyRationale(e.target.value)}
-                placeholder="Explain why this complaint is being reclassified…"
-              />
-              {reclassifyRationale.length > 0 && reclassifyRationale.length < 10 && (
-                <p className="text-xs text-semantic-error">Rationale must be at least 10 characters.</p>
-              )}
-            </div>
-          </div>
-        </ModalBody>
-        <ModalFooter>
-          <Button
-            variant="secondary"
-            onClick={() => { setShowReclassifyModal(false); setReclassifyError(null) }}
-            disabled={reclassifying}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleReclassify}
-            disabled={reclassifying || reclassifyRationale.trim().length < 10 || reclassifyRegime === complaint.regime_type}
-          >
-            {reclassifying ? 'Reclassifying…' : 'Confirm Reclassification'}
-          </Button>
-        </ModalFooter>
-      </Modal>
     </>
   )
 }

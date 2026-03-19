@@ -71,17 +71,6 @@ class ActionStatus(str, Enum):
     completed = "completed"
 
 
-class ComplaintRegime(str, Enum):
-    uk_regulated = "uk_regulated"
-    non_admitted = "non_admitted"
-
-
-class DataScope(str, Enum):
-    uk_regulated = "uk_regulated"
-    non_admitted = "non_admitted"
-    all          = "all"
-
-
 # Root cause taxonomy — plain strings validated at the schema layer (not a DB enum)
 # so the list can grow without any DDL changes.
 ROOT_CAUSE_CATEGORIES: dict[str, list[str]] = {

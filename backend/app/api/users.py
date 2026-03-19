@@ -39,7 +39,6 @@ def create_user(
         email=normalized_email,
         full_name=user_in.full_name,
         role=user_in.role,
-        data_scope=user_in.data_scope,
         is_active=user_in.is_active,
         hashed_password=get_password_hash(user_in.password),
     )
@@ -70,8 +69,6 @@ def update_user(
         user.full_name = user_update.full_name
     if user_update.role is not None:
         user.role = user_update.role
-    if user_update.data_scope is not None:
-        user.data_scope = user_update.data_scope
     if user_update.is_active is not None:
         user.is_active = user_update.is_active
     if user_update.password is not None:

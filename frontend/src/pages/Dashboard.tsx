@@ -29,8 +29,6 @@ type DashboardMetricsV2 = {
     escalated_open: number
     final_attachment_open_pct: number | null
   }
-  /** Supplementary breakdown by regime type. Optional — older API versions may not include this. */
-  by_regime?: Record<string, { open: number; ack_breach_pct: number | null; final_breach_pct: number | null }>
 }
 
 type QueueTab = 'mine' | 'unassigned' | 'breached' | 'oldest'
@@ -196,47 +194,6 @@ export default function Dashboard() {
             <div className="mt-2 text-xs text-text-secondary">No activity</div>
           </button>
         </div>
-
-        {/* By-Regime Breakdown — supplementary, only rendered when API provides the data */}
-        {!loadingMetrics && metrics?.by_regime && Object.keys(metrics.by_regime).length > 0 && (
-          <div className="mb-6 rounded-lg border border-border bg-surface">
-            <div className="px-4 py-3 border-b border-border">
-              <h3 className="text-sm font-semibold text-text-primary">Open Cases by Type</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
-              {Object.entries(metrics.by_regime).map(([regime, data]) => {
-                const label = regime === 'uk_regulated' ? 'UK Regulated (FCA DISP)' : 'Non-Admitted (Internal)'
-                const badgeClass = regime === 'uk_regulated'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-gray-100 text-gray-600'
-                const fmtPct = (v: number | null) => v == null ? '—' : `${v.toFixed(1)}%`
-                return (
-                  <div key={regime} className="px-5 py-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badgeClass}`}>
-                        {label}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-6 text-right">
-                      <div>
-                        <div className="text-2xl font-semibold text-text-primary">{data.open}</div>
-                        <div className="text-xs text-text-muted">open</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-text-primary">{fmtPct(data.ack_breach_pct)}</div>
-                        <div className="text-xs text-text-muted">ack breach</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-text-primary">{fmtPct(data.final_breach_pct)}</div>
-                        <div className="text-xs text-text-muted">final breach</div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Flow & Aging */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

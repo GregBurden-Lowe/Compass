@@ -89,20 +89,11 @@ export const ROOT_CAUSE_LABELS: Record<string, string> = {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Controls which regime's complaints a user can see. Independent of role. */
-export type DataScope = 'uk_regulated' | 'non_admitted' | 'all'
-
-/** Complaint regime classification — used for FCA reporting and UI labelling only.
- *  Both regimes follow identical operational workflows (SLA, D1, status transitions).
- */
-export type RegimeType = 'uk_regulated' | 'non_admitted'
-
 export interface User {
   id: string
   email: string
   full_name: string
   role: UserRole
-  data_scope: DataScope
   is_active: boolean
   mfa_enabled: boolean
   must_change_password?: boolean
@@ -175,7 +166,6 @@ export interface Complaint {
   id: string
   reference: string
   status: ComplaintStatus
-  regime_type: RegimeType  // authoritative classification field
   assigned_handler_id?: string | null
   assigned_handler_name?: string | null
   category: string
@@ -199,8 +189,6 @@ export interface Complaint {
   policy_number?: string
   vulnerability_flag: boolean
   vulnerability_notes?: string
-  /** @deprecated Use regime_type instead. Retained for BI backward compat only. */
-  fca_complaint?: boolean
   fos_complaint?: boolean
   fos_reference?: string
   fos_referred_at?: string
@@ -231,9 +219,6 @@ export interface CreateComplaintPayload {
   description: string
   category: string
   reason?: string
-  // regime_type is intentionally omitted — backend derives it from the insurer name
-  // fca_complaint is intentionally omitted — backend derives it from regime_type
-  fca_rationale?: string
   vulnerability_flag: boolean
   vulnerability_notes?: string
   policy_number?: string
@@ -254,11 +239,6 @@ export interface CreateComplaintPayload {
     product?: string
     scheme?: string
   }
-}
-
-export interface ReclassifyPayload {
-  regime_type: RegimeType
-  rationale: string
 }
 
 export interface Outcome {

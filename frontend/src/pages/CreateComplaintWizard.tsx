@@ -40,7 +40,6 @@ export default function CreateComplaintWizard() {
   const [formData, setFormData] = useState({
     source: 'Email',
     received_at: dayjs().format('YYYY-MM-DDTHH:mm'),
-    // regime_type is derived server-side from the insurer — not stored in formData
     description: '',
     category: '',
     reason: '',
@@ -92,13 +91,6 @@ export default function CreateComplaintWizard() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
-
-  // Regime is derived server-side from the insurer. Mirror the same rule here so the
-  // user sees the classification before they submit.
-  const NON_ADMITTED_INSURER = 'devon bay insurance company limited'
-  const derivedRegime = formData.insurer?.trim().toLowerCase() === NON_ADMITTED_INSURER
-    ? 'non_admitted'
-    : 'uk_regulated'
 
   const validateEmail = (email: string) => {
     if (!email) return true
@@ -167,9 +159,6 @@ export default function CreateComplaintWizard() {
         reason: formData.reason || null,
         initial_root_cause: formData.initial_root_cause || null,
         initial_root_cause_description: formData.initial_root_cause_description || null,
-        // regime_type is NOT sent — backend derives it from the insurer name
-        // fca_complaint is NOT sent — backend derives it from regime_type
-        fca_rationale: null,
         vulnerability_flag: formData.vulnerability_flag,
         vulnerability_notes: formData.vulnerability_notes || null,
         policy_number: formData.policy_number || null,
@@ -604,18 +593,6 @@ export default function CreateComplaintWizard() {
                       options={insurers}
                       placeholder="Select or type insurer..."
                     />
-                    {formData.insurer && (
-                      <p className="text-xs text-text-muted flex items-center gap-1.5">
-                        Will be classified as{' '}
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                          derivedRegime === 'non_admitted'
-                            ? 'bg-gray-100 text-gray-600'
-                            : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {derivedRegime === 'non_admitted' ? 'Non-Admitted' : 'FCA DISP'}
-                        </span>
-                      </p>
-                    )}
                   </div>
                   <div className="space-y-2">
                     <label htmlFor="broker" className="block text-xs font-medium text-text-primary">

@@ -23,7 +23,6 @@ export default function ComplaintsList() {
   const [handlerFilter, setHandlerFilter] = useState<string>('all')
   const [overdueFilter, setOverdueFilter] = useState(false)
   const [vulnerableFilter, setVulnerableFilter] = useState(false)
-  const [regimeFilter, setRegimeFilter] = useState<string>('all')
   const [showClosed, setShowClosed] = useState(false)
   const [sortField, setSortField] = useState<SortField>('received_at')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -64,8 +63,7 @@ export default function ComplaintsList() {
       if (overdueFilter) params.overdue = true
       if (vulnerableFilter) params.vulnerability = true
       if (search.trim()) params.search = search.trim()
-      if (regimeFilter !== 'all') params.regime_type = regimeFilter
-      
+
       const res = await api.get<Complaint[]>('/complaints', { params })
       // NOTE: backend does not currently support an explicit "unassigned" filter.
       // Workaround: filter unassigned in the returned page results.
@@ -101,7 +99,7 @@ export default function ComplaintsList() {
 
   useEffect(() => {
     loadComplaints()
-  }, [page, handlerFilter, overdueFilter, statusFilter, vulnerableFilter, regimeFilter])
+  }, [page, handlerFilter, overdueFilter, statusFilter, vulnerableFilter])
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -182,7 +180,6 @@ export default function ComplaintsList() {
     setOverdueFilter(false)
     setVulnerableFilter(false)
     setShowClosed(false)
-    setRegimeFilter('all')
     setPage(1)
   }
 
@@ -193,7 +190,6 @@ export default function ComplaintsList() {
     overdueFilter,
     vulnerableFilter,
     showClosed,
-    regimeFilter !== 'all',
   ].filter(Boolean).length
 
   return (
@@ -298,21 +294,6 @@ export default function ComplaintsList() {
                       {h.full_name}
                     </option>
                   ))}
-                </select>
-              </div>
-
-              {/* Type (Regime) Filter */}
-              <div>
-                <label htmlFor="regime-filter" className="block text-xs font-medium text-text-primary mb-1">Type</label>
-                <select
-                  id="regime-filter"
-                  value={regimeFilter}
-                  onChange={(e) => { setRegimeFilter(e.target.value); setPage(1) }}
-                  className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-brand"
-                >
-                  <option value="all">All Types</option>
-                  <option value="uk_regulated">UK Regulated</option>
-                  <option value="non_admitted">Non-Admitted</option>
                 </select>
               </div>
 
@@ -494,14 +475,6 @@ export default function ComplaintsList() {
                               title="Referred to FOS"
                             >
                               FOS
-                            </span>
-                          )}
-                          {complaint.regime_type === 'non_admitted' && (
-                            <span
-                              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600"
-                              title="Non-Admitted (internal tracking only)"
-                            >
-                              Non-Admitted
                             </span>
                           )}
                         </div>
