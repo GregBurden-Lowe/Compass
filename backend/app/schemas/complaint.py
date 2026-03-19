@@ -74,6 +74,8 @@ class ComplaintBase(BaseModel):
     broker: Optional[str] = None
     product: Optional[str] = None
     scheme: Optional[str] = None
+    initial_root_cause: Optional[str] = None
+    initial_root_cause_description: Optional[str] = None
 
 
 class ComplaintCreate(ComplaintBase):
@@ -100,6 +102,10 @@ class ComplaintUpdate(BaseModel):
     support_needs: Optional[dict] = None
     complainant: Optional[ComplainantCreate] = None
     policy: Optional[PolicyCreate] = None
+    initial_root_cause: Optional[str] = None
+    initial_root_cause_description: Optional[str] = None
+    final_root_cause: Optional[str] = None
+    final_root_cause_description: Optional[str] = None
 
 
 class CommunicationBase(BaseModel):
@@ -275,6 +281,10 @@ class ComplaintOut(BaseModel):
     legal_hold: bool = False
     retention_until: Optional[datetime] = None
     support_needs: Optional[dict] = None
+    initial_root_cause: Optional[str] = None
+    initial_root_cause_description: Optional[str] = None
+    final_root_cause: Optional[str] = None
+    final_root_cause_description: Optional[str] = None
     complainant: ComplainantOut
     policy: PolicyOut
     communications: List[CommunicationOut] = Field(default_factory=list)

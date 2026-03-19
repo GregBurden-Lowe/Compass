@@ -5,6 +5,7 @@ import { api } from '../api/client'
 import { TopBar } from '../components/layout'
 import { Button, Input, Card, CardHeader, CardTitle, CardBody, Combobox, Modal, ModalHeader, ModalBody, ModalFooter } from '../components/ui'
 import type { ReferenceItem } from '../types'
+import { ROOT_CAUSE_CATEGORIES, ROOT_CAUSE_LABELS } from '../types'
 
 export default function CreateComplaintWizard() {
   const navigate = useNavigate()
@@ -43,6 +44,8 @@ export default function CreateComplaintWizard() {
     description: '',
     category: '',
     reason: '',
+    initial_root_cause: '',
+    initial_root_cause_description: '',
     vulnerability_flag: false,
     vulnerability_notes: '',
     // Policy fields
@@ -143,6 +146,9 @@ export default function CreateComplaintWizard() {
     if (!formData.category) {
       errors.category = 'Category is required'
     }
+    if (formData.initial_root_cause === 'other' && !formData.initial_root_cause_description.trim()) {
+      errors.initial_root_cause_description = 'Description is required when root cause is Other'
+    }
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors)
@@ -159,6 +165,8 @@ export default function CreateComplaintWizard() {
         description: formData.description,
         category: formData.category,
         reason: formData.reason || null,
+        initial_root_cause: formData.initial_root_cause || null,
+        initial_root_cause_description: formData.initial_root_cause_description || null,
         // regime_type is NOT sent — backend derives it from the insurer name
         // fca_complaint is NOT sent — backend derives it from regime_type
         fca_rationale: null,
@@ -499,6 +507,55 @@ export default function CreateComplaintWizard() {
                     />
                   </div>
                 </div>
+
+                {/* Initial Root Cause */}
+                <div className="space-y-2">
+                  <label htmlFor="initial_root_cause" className="block text-xs font-medium text-text-primary">
+                    Initial Root Cause
+                    <span className="text-text-muted font-normal ml-1">(optional — handler's initial assessment)</span>
+                  </label>
+                  <select
+                    id="initial_root_cause"
+                    className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    value={formData.initial_root_cause}
+                    onChange={(e) => handleFieldChange('initial_root_cause', e.target.value)}
+                  >
+                    <option value="">Select root cause...</option>
+                    {Object.entries(ROOT_CAUSE_CATEGORIES).map(([group, causes]) => (
+                      <optgroup key={group} label={group}>
+                        {causes.map((cause) => (
+                          <option key={cause} value={cause}>
+                            {ROOT_CAUSE_LABELS[cause] ?? cause}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+
+                {formData.initial_root_cause === 'other' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="initial_root_cause_description" className="block text-xs font-medium text-text-primary">
+                        Root Cause Description *
+                      </label>
+                      {getCharacterCount(formData.initial_root_cause_description, 1000)}
+                    </div>
+                    <textarea
+                      id="initial_root_cause_description"
+                      className={`w-full min-h-[80px] rounded-lg border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15 ${
+                        validationErrors.initial_root_cause_description ? 'border-semantic-error' : 'border-border'
+                      }`}
+                      value={formData.initial_root_cause_description}
+                      onChange={(e) => handleFieldChange('initial_root_cause_description', e.target.value)}
+                      placeholder="Describe the root cause..."
+                      maxLength={1000}
+                    />
+                    {validationErrors.initial_root_cause_description && (
+                      <p className="text-xs text-semantic-error">{validationErrors.initial_root_cause_description}</p>
+                    )}
+                  </div>
+                )}
               </div>
             </CardBody>
           </Card>

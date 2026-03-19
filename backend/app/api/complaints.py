@@ -33,6 +33,7 @@ from app.models.enums import (
     OutcomeType,
     RedressPaymentStatus,
     ActionStatus,
+    VALID_ROOT_CAUSES,
 )
 from app.models.communication import Communication
 from app.schemas.complaint import (
@@ -63,6 +64,22 @@ from app.services import complaints as service
 from app.utils.dates import utcnow
 
 router = APIRouter(prefix="/complaints", tags=["complaints"])
+
+
+def _validate_root_cause(cause: str | None, description: str | None, label: str) -> None:
+    """Validate a root cause field: value must be in the known set, and 'other' requires a description."""
+    if cause is None:
+        return
+    if cause not in VALID_ROOT_CAUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{label} '{cause}' is not a recognised root cause value.",
+        )
+    if cause == "other" and not (description and description.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"A description is required when {label} is 'other'.",
+        )
 
 
 def _get_complaint(db: Session, complaint_id: str) -> Complaint:
@@ -461,6 +478,7 @@ def create_complaint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Reason is required when category is Other / Unclassified",
         )
+    _validate_root_cause(payload.initial_root_cause, payload.initial_root_cause_description, "initial_root_cause")
     if payload.category == "Vulnerability and Customer Treatment":
         payload.vulnerability_flag = True
     complaint = service.create_complaint(
@@ -528,6 +546,8 @@ def update_complaint(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Reason is required when category is Other / Unclassified",
         )
+    _validate_root_cause(payload.initial_root_cause, payload.initial_root_cause_description, "initial_root_cause")
+    _validate_root_cause(payload.final_root_cause, payload.final_root_cause_description, "final_root_cause")
     if payload.category and payload.category == "Vulnerability and Customer Treatment":
         payload.vulnerability_flag = True
     
@@ -1035,7 +1055,7 @@ async def add_communication(
     files: List[UploadFile] = File(default=[]),
     body: Optional[str] = Form(None),
     d1_checklist_confirmed: Optional[str] = Form(None),
-    confirmed_in_attachment: bool = Form(False),
+    confirmed_in_attachment_str: str = Form("false"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
 ):
@@ -1049,6 +1069,7 @@ async def add_communication(
         settings = get_settings()
         max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
         enable_hashing = getattr(settings, "enable_attachment_hashing", False)
+        confirmed_in_attachment: bool = confirmed_in_attachment_str.lower() in ("true", "1", "yes", "on")
         d1_list = None
         if d1_checklist_confirmed:
             try:

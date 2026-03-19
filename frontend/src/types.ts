@@ -1,5 +1,94 @@
 export type UserRole = 'admin' | 'complaints_handler' | 'complaints_manager' | 'reviewer' | 'read_only'
 
+// ── Root Cause Taxonomy ──────────────────────────────────────────────────────
+// Plain string values mirroring backend enums.ROOT_CAUSE_CATEGORIES.
+// Add new causes here AND in backend/app/models/enums.py — no DB migration needed.
+
+export const ROOT_CAUSE_CATEGORIES: Record<string, string[]> = {
+  'Communication & Service': [
+    'delay_in_response',
+    'unclear_communication',
+    'staff_conduct',
+    'failure_to_update_customer',
+    'inaccessible_service',
+  ],
+  'Claims Handling': [
+    'incorrectly_declined',
+    'settlement_undervalued',
+    'delay_in_handling',
+    'incorrect_exclusion_applied',
+    'excessive_information_requests',
+  ],
+  'Policy Administration': [
+    'incorrect_documentation',
+    'incorrect_premium',
+    'policy_set_up_incorrectly',
+    'renewal_error',
+    'cancellation_lapse_error',
+  ],
+  'Sales & Distribution': [
+    'unsuitable_product',
+    'incorrect_information_at_sale',
+    'failure_to_disclose_terms',
+    'needs_not_assessed',
+  ],
+  'Underwriting & Risk': [
+    'incorrect_risk_assessment',
+    'incorrect_loading_or_exclusion',
+    'unjustified_decline',
+  ],
+  'Systems & Process': [
+    'system_it_failure',
+    'process_gap',
+    'data_document_error',
+  ],
+  'Third Party': [
+    'broker_intermediary_error',
+    'third_party_supplier_failure',
+  ],
+  'Vulnerability & Accessibility': [
+    'failure_to_identify_vulnerability',
+    'failure_to_adapt_service',
+    'accessibility_barrier',
+  ],
+  'Other': ['other'],
+}
+
+export const ROOT_CAUSE_LABELS: Record<string, string> = {
+  delay_in_response: 'Delay in Response',
+  unclear_communication: 'Unclear Communication',
+  staff_conduct: 'Staff Conduct',
+  failure_to_update_customer: 'Failure to Update Customer',
+  inaccessible_service: 'Inaccessible Service',
+  incorrectly_declined: 'Incorrectly Declined',
+  settlement_undervalued: 'Settlement Undervalued',
+  delay_in_handling: 'Delay in Handling',
+  incorrect_exclusion_applied: 'Incorrect Exclusion Applied',
+  excessive_information_requests: 'Excessive Information Requests',
+  incorrect_documentation: 'Incorrect Documentation',
+  incorrect_premium: 'Incorrect Premium',
+  policy_set_up_incorrectly: 'Policy Set Up Incorrectly',
+  renewal_error: 'Renewal Error',
+  cancellation_lapse_error: 'Cancellation / Lapse Error',
+  unsuitable_product: 'Unsuitable Product',
+  incorrect_information_at_sale: 'Incorrect Information at Sale',
+  failure_to_disclose_terms: 'Failure to Disclose Terms',
+  needs_not_assessed: 'Needs Not Assessed',
+  incorrect_risk_assessment: 'Incorrect Risk Assessment',
+  incorrect_loading_or_exclusion: 'Incorrect Loading / Exclusion',
+  unjustified_decline: 'Unjustified Decline',
+  system_it_failure: 'System / IT Failure',
+  process_gap: 'Process Gap',
+  data_document_error: 'Data / Document Error',
+  broker_intermediary_error: 'Broker / Intermediary Error',
+  third_party_supplier_failure: 'Third Party Supplier Failure',
+  failure_to_identify_vulnerability: 'Failure to Identify Vulnerability',
+  failure_to_adapt_service: 'Failure to Adapt Service',
+  accessibility_barrier: 'Accessibility Barrier',
+  other: 'Other',
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 /** Controls which regime's complaints a user can see. Independent of role. */
 export type DataScope = 'uk_regulated' | 'non_admitted' | 'all'
 
@@ -130,6 +219,10 @@ export interface Complaint {
   reopened_at?: string
   support_needs?: Record<string, any>
   joined_outbound_comm_exists?: boolean
+  initial_root_cause?: string | null
+  initial_root_cause_description?: string | null
+  final_root_cause?: string | null
+  final_root_cause_description?: string | null
 }
 
 export interface CreateComplaintPayload {

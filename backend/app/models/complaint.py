@@ -56,6 +56,11 @@ class Complaint(Base):
     ack_breached = Column(Boolean, default=False, nullable=False)
     final_breached = Column(Boolean, default=False, nullable=False)
 
+    initial_root_cause             = Column(String(100),  nullable=True)
+    initial_root_cause_description = Column(String(1000), nullable=True)
+    final_root_cause               = Column(String(100),  nullable=True)
+    final_root_cause_description   = Column(String(1000), nullable=True)
+
     assigned_handler_id = Column(ForeignKey("user.id"), nullable=True)
     reopened_from_id = Column(ForeignKey("complaint.id"), nullable=True)
     is_escalated = Column(Boolean, default=False, nullable=False)

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { api } from '../api/client'
-import { Complaint, Communication, User, ComplaintEvent, ReferenceItem } from '../types'
+import { Complaint, Communication, User, ComplaintEvent, ReferenceItem, ROOT_CAUSE_CATEGORIES, ROOT_CAUSE_LABELS } from '../types'
 import { TopBar } from '../components/layout'
 import { Button, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, ModalBody, ModalFooter, Input, Combobox } from '../components/ui'
 import { StatusChip } from '../components/StatusChip'
@@ -56,7 +56,15 @@ export default function ComplaintDetail() {
     complainant_address: '',
     complainant_dob: '',
     support_needs_entries: [] as { key: string; value: string }[],
+    initial_root_cause: '',
+    initial_root_cause_description: '',
   })
+
+  // Final root cause inline editor
+  const [editingFinalRootCause, setEditingFinalRootCause] = useState(false)
+  const [finalRootCauseForm, setFinalRootCauseForm] = useState({ final_root_cause: '', final_root_cause_description: '' })
+  const [savingFinalRootCause, setSavingFinalRootCause] = useState(false)
+  const [finalRootCauseError, setFinalRootCauseError] = useState<string | null>(null)
 
   // Reference data (for edit modal comboboxes)
   const [products, setProducts] = useState<string[]>([])
@@ -854,6 +862,8 @@ export default function ComplaintDetail() {
       support_needs_entries: complaint.support_needs && typeof complaint.support_needs === 'object'
         ? Object.entries(complaint.support_needs).map(([k, v]) => ({ key: k, value: String(v ?? '') }))
         : [],
+      initial_root_cause: complaint.initial_root_cause || '',
+      initial_root_cause_description: complaint.initial_root_cause_description || '',
     })
     setShowEditModal(true)
   }
@@ -869,6 +879,8 @@ export default function ComplaintDetail() {
         description: editForm.description || null,
         category: editForm.category || null,
         reason: editForm.reason || null,
+        initial_root_cause: editForm.initial_root_cause || null,
+        initial_root_cause_description: editForm.initial_root_cause_description || null,
 
         vulnerability_flag: editForm.vulnerability_flag,
         vulnerability_notes: editForm.vulnerability_notes || null,
@@ -917,6 +929,29 @@ export default function ComplaintDetail() {
       setEditError(err?.response?.data?.detail || 'Failed to update complaint')
     } finally {
       setSavingEdit(false)
+    }
+  }
+
+  const handleSaveFinalRootCause = async () => {
+    if (!id) return
+    if (finalRootCauseForm.final_root_cause === 'other' && !finalRootCauseForm.final_root_cause_description.trim()) {
+      setFinalRootCauseError('Description is required when root cause is Other')
+      return
+    }
+    setSavingFinalRootCause(true)
+    setFinalRootCauseError(null)
+    try {
+      await api.patch(`/complaints/${id}`, {
+        final_root_cause: finalRootCauseForm.final_root_cause || null,
+        final_root_cause_description: finalRootCauseForm.final_root_cause_description || null,
+      })
+      setEditingFinalRootCause(false)
+      loadComplaint()
+      setUiMessage({ type: 'success', text: 'Final root cause saved' })
+    } catch (err: any) {
+      setFinalRootCauseError(err?.response?.data?.detail || 'Failed to save final root cause')
+    } finally {
+      setSavingFinalRootCause(false)
     }
   }
 
@@ -1586,6 +1621,131 @@ export default function ComplaintDetail() {
         {/* Outcome Tab */}
         {activeTab === 'outcome' && (
           <div className="space-y-6">
+
+            {/* Root Cause Analysis Card */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Root Cause Analysis</CardTitle>
+                  {user?.role !== 'read_only' && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={openEditModal}
+                      >
+                        Edit Initial Cause
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          setFinalRootCauseForm({
+                            final_root_cause: complaint.final_root_cause || '',
+                            final_root_cause_description: complaint.final_root_cause_description || '',
+                          })
+                          setFinalRootCauseError(null)
+                          setEditingFinalRootCause(true)
+                        }}
+                      >
+                        {complaint.final_root_cause ? 'Update Final Cause' : 'Record Final Cause'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-4 mt-4">
+                  {/* Initial Root Cause */}
+                  <div>
+                    <label className="block text-xs font-medium text-text-primary mb-1">Initial Root Cause</label>
+                    {complaint.initial_root_cause ? (
+                      <>
+                        <p className="text-sm text-text-primary">
+                          {ROOT_CAUSE_LABELS[complaint.initial_root_cause] ?? complaint.initial_root_cause}
+                        </p>
+                        {complaint.initial_root_cause === 'other' && complaint.initial_root_cause_description && (
+                          <p className="text-sm text-text-secondary mt-1 italic">{complaint.initial_root_cause_description}</p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-sm text-text-muted italic">Not recorded</p>
+                    )}
+                  </div>
+
+                  {/* Final Root Cause — read-only view */}
+                  {!editingFinalRootCause && (
+                    <div>
+                      <label className="block text-xs font-medium text-text-primary mb-1">Final Root Cause</label>
+                      {complaint.final_root_cause ? (
+                        <>
+                          <p className="text-sm text-text-primary">
+                            {ROOT_CAUSE_LABELS[complaint.final_root_cause] ?? complaint.final_root_cause}
+                          </p>
+                          {complaint.final_root_cause === 'other' && complaint.final_root_cause_description && (
+                            <p className="text-sm text-text-secondary mt-1 italic">{complaint.final_root_cause_description}</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-text-muted italic">Not recorded</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Final Root Cause — inline editor */}
+                  {editingFinalRootCause && (
+                    <div className="space-y-3 border border-border rounded-lg p-4 bg-surface-raised">
+                      <label className="block text-xs font-medium text-text-primary">Final Root Cause</label>
+                      <select
+                        className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                        value={finalRootCauseForm.final_root_cause}
+                        onChange={(e) => setFinalRootCauseForm({ ...finalRootCauseForm, final_root_cause: e.target.value, final_root_cause_description: '' })}
+                      >
+                        <option value="">Select root cause...</option>
+                        {Object.entries(ROOT_CAUSE_CATEGORIES).map(([group, causes]) => (
+                          <optgroup key={group} label={group}>
+                            {causes.map((cause) => (
+                              <option key={cause} value={cause}>
+                                {ROOT_CAUSE_LABELS[cause] ?? cause}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+
+                      {finalRootCauseForm.final_root_cause === 'other' && (
+                        <div className="space-y-2">
+                          <label className="block text-xs font-medium text-text-primary">Description *</label>
+                          <textarea
+                            className={`w-full min-h-[80px] rounded-lg border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15 ${
+                              finalRootCauseError ? 'border-semantic-error' : 'border-border'
+                            }`}
+                            value={finalRootCauseForm.final_root_cause_description}
+                            onChange={(e) => setFinalRootCauseForm({ ...finalRootCauseForm, final_root_cause_description: e.target.value })}
+                            placeholder="Describe the root cause..."
+                            maxLength={1000}
+                          />
+                        </div>
+                      )}
+
+                      {finalRootCauseError && (
+                        <p className="text-xs text-semantic-error">{finalRootCauseError}</p>
+                      )}
+
+                      <div className="flex gap-2 justify-end">
+                        <Button variant="secondary" size="sm" onClick={() => setEditingFinalRootCause(false)}>
+                          Cancel
+                        </Button>
+                        <Button variant="primary" size="sm" onClick={handleSaveFinalRootCause} disabled={savingFinalRootCause}>
+                          {savingFinalRootCause ? 'Saving...' : 'Save'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
+
             {/* Outcome Section */}
             <Card>
               <CardHeader>
@@ -2557,8 +2717,13 @@ export default function ComplaintDetail() {
                         onChange={() => setConfirmedInAttachment(!confirmedInAttachment)}
                         className="h-4 w-4 rounded border-border text-brand"
                       />
-                      <span className="text-sm">Confirmed in attachment (requires at least one file)</span>
+                      <span className="text-sm">Confirmed in attachment</span>
                     </label>
+                    {confirmedInAttachment && (
+                      <p className="text-xs text-text-secondary ml-6">
+                        All D1 items satisfied — attach the final response letter as a file below.
+                      </p>
+                    )}
                     {!confirmedInAttachment && (
                       <div className="space-y-1">
                         {D1_CHECKLIST_KEYS.map((key) => (
@@ -2691,6 +2856,43 @@ export default function ComplaintDetail() {
                     placeholder="Description…"
                   />
                 </div>
+
+                {/* Initial Root Cause */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-text-primary">
+                    Initial Root Cause
+                    <span className="text-text-muted font-normal ml-1">(optional)</span>
+                  </label>
+                  <select
+                    className="w-full h-10 rounded-lg border border-border bg-surface px-3 text-sm text-text-primary outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                    value={editForm.initial_root_cause}
+                    onChange={(e) => setEditForm({ ...editForm, initial_root_cause: e.target.value, initial_root_cause_description: '' })}
+                  >
+                    <option value="">Select root cause...</option>
+                    {Object.entries(ROOT_CAUSE_CATEGORIES).map(([group, causes]) => (
+                      <optgroup key={group} label={group}>
+                        {causes.map((cause) => (
+                          <option key={cause} value={cause}>
+                            {ROOT_CAUSE_LABELS[cause] ?? cause}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+
+                {editForm.initial_root_cause === 'other' && (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-text-primary">Root Cause Description *</label>
+                    <textarea
+                      className="w-full min-h-[80px] rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/15"
+                      value={editForm.initial_root_cause_description}
+                      onChange={(e) => setEditForm({ ...editForm, initial_root_cause_description: e.target.value })}
+                      placeholder="Describe the root cause..."
+                      maxLength={1000}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 

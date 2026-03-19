@@ -81,3 +81,64 @@ class DataScope(str, Enum):
     non_admitted = "non_admitted"
     all          = "all"
 
+
+# Root cause taxonomy — plain strings validated at the schema layer (not a DB enum)
+# so the list can grow without any DDL changes.
+ROOT_CAUSE_CATEGORIES: dict[str, list[str]] = {
+    "Communication & Service": [
+        "delay_in_response",
+        "unclear_communication",
+        "staff_conduct",
+        "failure_to_update_customer",
+        "inaccessible_service",
+    ],
+    "Claims Handling": [
+        "incorrectly_declined",
+        "settlement_undervalued",
+        "delay_in_handling",
+        "incorrect_exclusion_applied",
+        "excessive_information_requests",
+    ],
+    "Policy Administration": [
+        "incorrect_documentation",
+        "incorrect_premium",
+        "policy_set_up_incorrectly",
+        "renewal_error",
+        "cancellation_lapse_error",
+    ],
+    "Sales & Distribution": [
+        "unsuitable_product",
+        "incorrect_information_at_sale",
+        "failure_to_disclose_terms",
+        "needs_not_assessed",
+    ],
+    "Underwriting & Risk": [
+        "incorrect_risk_assessment",
+        "incorrect_loading_or_exclusion",
+        "unjustified_decline",
+    ],
+    "Systems & Process": [
+        "system_it_failure",
+        "process_gap",
+        "data_document_error",
+    ],
+    "Third Party": [
+        "broker_intermediary_error",
+        "third_party_supplier_failure",
+    ],
+    "Vulnerability & Accessibility": [
+        "failure_to_identify_vulnerability",
+        "failure_to_adapt_service",
+        "accessibility_barrier",
+    ],
+    "Other": [
+        "other",
+    ],
+}
+
+VALID_ROOT_CAUSES: frozenset[str] = frozenset(
+    cause
+    for causes in ROOT_CAUSE_CATEGORIES.values()
+    for cause in causes
+)
+
