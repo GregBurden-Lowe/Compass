@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { api } from '../api/client'
-import { Complaint, Communication, User, ComplaintEvent, ReferenceItem, ROOT_CAUSE_CATEGORIES, ROOT_CAUSE_LABELS } from '../types'
+import { Complaint, Communication, User, ComplaintEvent, ReferenceItem, ROOT_CAUSE_CATEGORIES, ROOT_CAUSE_LABELS, Attachment, EmailPreview } from '../types'
 import { TopBar } from '../components/layout'
 import { Button, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, ModalBody, ModalFooter, Input, Combobox } from '../components/ui'
 import { StatusChip } from '../components/StatusChip'
+import { EmailPreviewModal } from '../components/EmailPreviewModal'
 import { useAuth } from '../context/AuthContext'
 import { useFeatures, D1_CHECKLIST_KEYS } from '../hooks/useFeatures'
 
@@ -153,6 +154,13 @@ export default function ComplaintDetail() {
   const [fosReferredAt, setFosReferredAt] = useState(dayjs().format('YYYY-MM-DDTHH:mm'))
   const [referringToFos, setReferringToFos] = useState(false)
   const [fosError, setFosError] = useState<string | null>(null)
+
+  // Email attachment preview modal
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false)
+  const [emailPreviewLoading, setEmailPreviewLoading] = useState(false)
+  const [emailPreviewData, setEmailPreviewData] = useState<EmailPreview | null>(null)
+  const [emailPreviewFileName, setEmailPreviewFileName] = useState('')
+  const [emailPreviewDownloadUrl, setEmailPreviewDownloadUrl] = useState('')
 
   useEffect(() => {
     if (!id) return
@@ -806,6 +814,40 @@ export default function ComplaintDetail() {
       setUiMessage({ type: 'error', text: err?.response?.data?.detail || 'Failed to download timeline PDF' })
     }
   }
+
+  // ── Email attachment preview ─────────────────────────────────────────────
+
+  /** Returns true if the attachment is an EML or MSG email file. */
+  const isEmailFile = (att: Attachment): boolean => {
+    const name = att.file_name.toLowerCase()
+    const ct = (att.content_type || '').toLowerCase()
+    return (
+      name.endsWith('.eml') ||
+      name.endsWith('.msg') ||
+      ct === 'message/rfc822' ||
+      ct === 'application/vnd.ms-outlook' ||
+      ct === 'application/x-msg'
+    )
+  }
+
+  const handleEmailPreview = async (att: Attachment, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEmailPreviewFileName(att.file_name)
+    setEmailPreviewDownloadUrl(att.url)
+    setEmailPreviewData(null)
+    setEmailPreviewOpen(true)
+    setEmailPreviewLoading(true)
+    try {
+      const res = await api.get<EmailPreview>(`/attachments/${att.id}/preview`)
+      setEmailPreviewData(res.data)
+    } catch {
+      setEmailPreviewData(null)
+    } finally {
+      setEmailPreviewLoading(false)
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
 
   const openEditModal = () => {
     if (!complaint) return
@@ -1523,21 +1565,40 @@ export default function ComplaintDetail() {
                               <div className="text-sm text-text-primary whitespace-pre-wrap">{comm.summary}</div>
                               {comm.attachments && comm.attachments.length > 0 && (
                                 <div className="mt-3 flex flex-wrap gap-2">
-                                  {comm.attachments.map((att) => (
-                                    <a
-                                      key={att.id}
-                                      href={att.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-app text-text-primary hover:bg-border text-xs transition"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                      </svg>
-                                      {att.file_name}
-                                    </a>
-                                  ))}
+                                  {comm.attachments.map((att) =>
+                                    isEmailFile(att) ? (
+                                      // EML / MSG — open in-app email preview modal
+                                      <button
+                                        key={att.id}
+                                        type="button"
+                                        onClick={(e) => handleEmailPreview(att, e)}
+                                        className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-app text-text-primary hover:bg-border text-xs transition"
+                                        title="Preview email"
+                                      >
+                                        {/* Envelope icon */}
+                                        <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                                        </svg>
+                                        {att.file_name}
+                                      </button>
+                                    ) : (
+                                      // All other file types — open in new browser tab
+                                      <a
+                                        key={att.id}
+                                        href={att.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-app text-text-primary hover:bg-border text-xs transition"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {/* Paperclip icon */}
+                                        <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                        </svg>
+                                        {att.file_name}
+                                      </a>
+                                    )
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -3075,6 +3136,16 @@ export default function ComplaintDetail() {
           </Button>
         </ModalFooter>
       </Modal >
+
+      {/* Email attachment preview modal */}
+      <EmailPreviewModal
+        open={emailPreviewOpen}
+        onClose={() => { setEmailPreviewOpen(false); setEmailPreviewData(null) }}
+        fileName={emailPreviewFileName}
+        loading={emailPreviewLoading}
+        data={emailPreviewData}
+        downloadUrl={emailPreviewDownloadUrl}
+      />
 
     </>
   )

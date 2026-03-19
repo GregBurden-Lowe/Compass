@@ -18,3 +18,5 @@ reportlab==4.2.2
 # NOTE: passlib 1.7.4 is not compatible with bcrypt 4.x.
 # Keep bcrypt pinned to a 3.x release for production stability.
 bcrypt==3.2.2
+# MSG email file parsing (.msg / Outlook format). Pure Python, no native deps.
+extract-msg>=0.28.0

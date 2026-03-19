@@ -305,3 +305,16 @@ export interface ComplaintEvent {
   created_by_id?: string
   created_by_name?: string
 }
+
+/** Parsed content returned by GET /api/attachments/{id}/preview for EML/MSG files. */
+export interface EmailPreview {
+  subject: string
+  /** Sender address (named `from_` to avoid Python keyword clash in the API). */
+  from_: string
+  to: string
+  cc?: string
+  date?: string
+  html_body?: string
+  plain_body?: string
+  has_html: boolean
+}
