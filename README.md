@@ -35,6 +35,27 @@ docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
    docker compose up -d --build
    ```
 
+### FCA / UK isolated stack (dedicated Docker Postgres)
+1. Create the FCA env file:
+   ```bash
+   cp .env.fca.example .env.fca
+   ```
+2. Edit `.env.fca` and set:
+   - `SECRET_KEY`
+   - `FCA_POSTGRES_PASSWORD`
+   - `FCA_SERVER_NAME`
+   - `FCA_ENABLE_TLS=true` and `FCA_TLS_CERT_NAME=...` if you have a separate certificate
+3. Start the FCA stack:
+   ```bash
+   docker compose --env-file .env.fca -f docker-compose.fca.yml up -d --build
+   ```
+4. Default FCA host ports are:
+   - app HTTP: `http://localhost:8080`
+   - app HTTPS: `https://localhost:8443` when `FCA_ENABLE_TLS=true`
+   - Postgres: `localhost:5433`
+
+The FCA stack reuses the same application images/source, but runs with its own Docker Postgres container, named volumes, container names, and compose project name (`compass-fca`).
+
 ## Local backend (optional)
 ```bash
 cd backend
@@ -88,7 +109,7 @@ Includes unit tests for SLA calculations, workflow transitions, and a basic API 
 
 ## Useful commands
 - `docker compose up --build` – run full stack.
+- `docker compose --env-file .env.fca -f docker-compose.fca.yml up -d --build` – run the isolated FCA stack.
 - `alembic upgrade head` – apply migrations.
 - `python -m app.seed.seed_data` – reseed demo data.
 - `npm run dev` (frontend) / `uvicorn app.main:app --reload` (backend) – local dev servers.
-

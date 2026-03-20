@@ -1,0 +1,104 @@
+name: compass-fca
+
+services:
+  db:
+    image: postgres:15
+    container_name: compass-fca-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${FCA_POSTGRES_DB:-complaints_fca}
+      POSTGRES_USER: ${FCA_POSTGRES_USER:-compass_fca}
+      POSTGRES_PASSWORD: ${FCA_POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - fca_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${FCA_POSTGRES_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${FCA_POSTGRES_USER:-compass_fca} -d ${FCA_POSTGRES_DB:-complaints_fca}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      com.compass.stack: fca
+
+  backend:
+    image: compass-backend
+    build:
+      context: ./backend
+    container_name: compass-fca-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_NAME: ${APP_NAME:-Compass UK/FCA Complaints}
+      DATABASE_URL: postgresql+psycopg2://${FCA_POSTGRES_USER:-compass_fca}:${FCA_POSTGRES_PASSWORD:-change-me}@db:5432/${FCA_POSTGRES_DB:-complaints_fca}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEBUG: ${DEBUG:-false}
+      DEMO_MODE: ${DEMO_MODE:-false}
+      SECRET_KEY: ${SECRET_KEY:-}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-false}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:${FCA_HTTP_PORT:-8080},https://localhost:${FCA_HTTPS_PORT:-8443}}
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-true}
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
+      REQUIRE_FINAL_RESPONSE_EVIDENCE: ${REQUIRE_FINAL_RESPONSE_EVIDENCE:-true}
+      REQUIRE_D1_CHECKLIST: ${REQUIRE_D1_CHECKLIST:-true}
+      REQUIRE_OUTBOUND_BEFORE_CLOSE: ${REQUIRE_OUTBOUND_BEFORE_CLOSE:-true}
+      ENABLE_DEADLINE_NOTIFICATIONS: ${ENABLE_DEADLINE_NOTIFICATIONS:-false}
+      ENABLE_SUPPORT_NEEDS: ${ENABLE_SUPPORT_NEEDS:-false}
+      ENABLE_DELAY_RESPONSE_KIND: ${ENABLE_DELAY_RESPONSE_KIND:-true}
+      ENABLE_BROKER_REFERRAL: ${ENABLE_BROKER_REFERRAL:-true}
+      ENABLE_ATTACHMENT_HASHING: ${ENABLE_ATTACHMENT_HASHING:-false}
+      RESTRICT_VULNERABILITY_NOTES: ${RESTRICT_VULNERABILITY_NOTES:-false}
+      NO_OUTBOUND_DAYS_WARNING: ${NO_OUTBOUND_DAYS_WARNING:-14}
+    volumes:
+      - fca_attachments_data:/app/storage/attachments
+    expose:
+      - "8000"
+    labels:
+      com.compass.stack: fca
+
+  frontend:
+    image: compass-frontend
+    build:
+      context: ./frontend
+    container_name: compass-fca-frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+    labels:
+      com.compass.stack: fca
+
+  nginx:
+    image: nginx:alpine
+    container_name: compass-fca-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    entrypoint:
+      - /bin/sh
+      - -c
+      - /opt/compass-fca/render-default-conf.sh && exec nginx -g 'daemon off;'
+    environment:
+      NGINX_SERVER_NAME: ${FCA_SERVER_NAME:-_}
+      NGINX_SSL_CERT_NAME: ${FCA_TLS_CERT_NAME:-}
+      NGINX_ENABLE_TLS: ${FCA_ENABLE_TLS:-false}
+    ports:
+      - "${FCA_HTTP_PORT:-8080}:80"
+      - "${FCA_HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./nginx/fca.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/render-default-conf.sh:/opt/compass-fca/render-default-conf.sh:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    labels:
+      com.compass.stack: fca
+
+volumes:
+  fca_postgres_data:
+    name: compass_fca_postgres_data
+  fca_attachments_data:
+    name: compass_fca_attachments_data

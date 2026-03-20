@@ -6,9 +6,10 @@ services:
     container_name: compass-backend
     restart: unless-stopped
     environment:
+      APP_NAME: ${APP_NAME:-Complaints Management}
       # Production: point this at your DigitalOcean managed Postgres in `.env`.
       # Local dev: use `docker-compose.local.yml` which provides a local `db` service.
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: ${DATABASE_URL:-}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEBUG: ${DEBUG:-false}
       DEMO_MODE: ${DEMO_MODE:-false}
