@@ -48,6 +48,40 @@ def test_final_response_with_communication_creates_comm(db_session):
     assert c.status == ComplaintStatus.final_response_issued
 
 
+def test_existing_final_response_communication_uses_communication_timestamp(db_session):
+    """Using an existing final-response communication should stamp the complaint with the communication occurred_at."""
+    from app.models.attachment import Attachment
+
+    c = _complaint_with_outcome(db_session)
+    occurred_at = datetime(2024, 1, 3, 15, 45, tzinfo=timezone.utc)
+    comm = Communication(
+        complaint_id=c.id,
+        channel="email",
+        direction=CommunicationDirection.outbound,
+        kind="final_response",
+        summary="Final response sent",
+        occurred_at=occurred_at,
+        is_final_response=False,
+    )
+    db_session.add(comm)
+    db_session.flush()
+    db_session.add(
+        Attachment(
+            communication_id=comm.id,
+            file_name="final-response.pdf",
+            content_type="application/pdf",
+            storage_path="/tmp/final-response.pdf",
+        )
+    )
+    db_session.flush()
+
+    service.issue_final_response_with_communication(db_session, c, "user-1", communication=comm)
+    db_session.flush()
+
+    assert c.final_response_at == occurred_at
+    assert c.status == ComplaintStatus.final_response_issued
+
+
 def test_final_response_confirmed_sent_externally_persists_reason_in_body(db_session):
     """When confirmed_sent_externally=True and external_send_reason is set, the stub Communication.body contains the reason."""
     c = _complaint_with_outcome(db_session)

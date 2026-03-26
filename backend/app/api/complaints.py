@@ -98,6 +98,20 @@ def _get_complaint(db: Session, complaint_id: str) -> Complaint:
     return complaint
 
 
+def _find_existing_final_response_communication(complaint: Complaint) -> Optional[Communication]:
+    candidates = [
+        comm for comm in (complaint.communications or [])
+        if not getattr(comm, "is_internal", False)
+        and (
+            getattr(comm, "is_final_response", False)
+            or ((getattr(comm, "kind", None) or "").strip().lower() == "final_response")
+        )
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda comm: comm.occurred_at or utcnow())
+
+
 def _median(values: list[float]) -> Optional[float]:
     if not values:
         return None
@@ -839,11 +853,13 @@ def issue_final_response(
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.reviewer, UserRole.complaints_manager, UserRole.complaints_handler])),
 ):
     complaint = _get_complaint(db, complaint_id)
+    existing_final_response_comm = _find_existing_final_response_communication(complaint)
     try:
         service.issue_final_response_with_communication(
             db,
             complaint,
             str(current_user.id),
+            communication=existing_final_response_comm,
             summary=None,
             body=None,
             confirmed_sent_externally=body.confirmed_sent_externally if body else False,
@@ -1052,6 +1068,7 @@ async def add_communication(
                 meta["size_bytes"] = len(content)
             saved_files.append(meta)
             logger.info(f"Saved attachment: {upload.filename} -> {dest_absolute} ({len(content)} bytes)")
+        effective_is_final_response = bool(is_final_response or ((kind or "").strip().lower() == "final_response" and not is_internal))
         comm = service.add_communication_with_attachments(
             db,
             complaint=complaint,
@@ -1060,7 +1077,7 @@ async def add_communication(
             direction=direction,
             summary=summary,
             occurred_at=occurred_at,
-            is_final_response=is_final_response,
+            is_final_response=effective_is_final_response,
             is_internal=is_internal,
             attachment_files=saved_files,
             user_id=str(current_user.id),
@@ -1069,7 +1086,7 @@ async def add_communication(
             confirmed_in_attachment=confirmed_in_attachment,
         )
         logger.info(f"Created communication {comm.id} with {len(saved_files)} attachment(s)")
-        if is_final_response:
+        if effective_is_final_response:
             if not complaint.outcome:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -1283,4 +1300,3 @@ def delete_complaint(
         logger.info(f"Deleted complaint {complaint_id}: removed {deleted_count}/{len(attachment_files)} attachment files")
     
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-

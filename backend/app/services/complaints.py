@@ -310,13 +310,30 @@ def record_outcome(
 
 
 def issue_final_response(db: Session, complaint: Complaint, user_id: Optional[str]) -> Complaint:
+    return issue_final_response_at(db, complaint, user_id, issued_at=None)
+
+
+def issue_final_response_at(
+    db: Session,
+    complaint: Complaint,
+    user_id: Optional[str],
+    issued_at: Optional[datetime],
+) -> Complaint:
     if not complaint.outcome:
         raise ValueError("Outcome required before final response")
-    refresh_breach_flags(complaint)
-    if complaint.final_breached:
+
+    sent_at = issued_at or utcnow()
+    if sent_at.tzinfo is None:
+        sent_at = sent_at.replace(tzinfo=timezone.utc)
+
+    final_due = complaint.final_due_at
+    if final_due and final_due.tzinfo is None:
+        final_due = final_due.replace(tzinfo=timezone.utc)
+    if final_due and sent_at > final_due:
         add_event(db, complaint, "final_sla_breached", "Final response SLA breached (sent late)", user_id)
+
     complaint.status = ComplaintStatus.final_response_issued
-    complaint.final_response_at = utcnow()
+    complaint.final_response_at = sent_at
     complaint.final_breached = False
     add_event(db, complaint, "final_response_issued", "Final response issued", user_id)
     return complaint
@@ -383,6 +400,15 @@ def issue_final_response_with_communication(
             confirmed_in_attachment=confirmed_in_attachment,
         )
     else:
+        if require_evidence:
+            att_count = len(communication.attachments) if communication.attachments else 0
+            body_text = (getattr(communication, "body", None) or "").strip()
+            has_external_evidence = "Evidence: sent externally" in body_text and "Reason:" in body_text
+            if att_count < 1 and not has_external_evidence:
+                raise ValueError(
+                    "Evidence required: attach at least one file, or set confirmed_sent_externally=true "
+                    "with external_send_reason (min 20 characters)."
+                )
         if require_d1:
             att_count = len(communication.attachments) if communication.attachments else 0
             validate_d1_checklist(
@@ -391,7 +417,8 @@ def issue_final_response_with_communication(
                 att_count,
                 require_d1=True,
             )
-    return issue_final_response(db, complaint, user_id)
+    issued_at = communication.occurred_at if communication is not None else None
+    return issue_final_response_at(db, complaint, user_id, issued_at=issued_at)
 
 
 def _has_outbound_comm(complaint: Complaint) -> bool:
@@ -775,5 +802,4 @@ def update_redress_payment(
             None,
         )
     return payment
-
 
