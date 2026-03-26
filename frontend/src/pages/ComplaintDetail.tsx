@@ -1127,15 +1127,6 @@ export default function ComplaintDetail() {
                         </Button>
                       )}
 
-                      {complaint.outcome && !complaint.final_response_at && (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => handleStatusChange('final-response', 'Final response issued')}
-                        >
-                          📨 Issue Final Response
-                        </Button>
-                      )}
                       {features.enable_delay_response_kind &&
                         !complaint.final_response_at &&
                         complaint.received_at &&
