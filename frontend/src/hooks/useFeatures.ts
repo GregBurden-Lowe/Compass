@@ -4,7 +4,6 @@ import type { FeaturesFlags } from '../types'
 
 const defaultFlags: FeaturesFlags = {
   require_final_response_evidence: false,
-  require_outbound_before_close: false,
   enable_deadline_notifications: false,
   enable_support_needs: false,
   enable_delay_response_kind: false,

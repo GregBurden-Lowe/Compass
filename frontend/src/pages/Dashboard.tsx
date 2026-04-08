@@ -13,7 +13,7 @@ type DashboardMetricsV2 = {
     open: number
     my_open: number
     open_sla_breaches: number
-    open_stale_21d: number
+    open_stale_14d: number
   }
   sla_30d: {
     ack: { on_time_pct: number | null; on_time: number; total: number }
@@ -187,9 +187,9 @@ export default function Dashboard() {
             onClick={() => navigate('/tasks')}
             className="rounded-card border border-border bg-app p-6 text-left hover:bg-surface transition"
           >
-            <div className="text-sm font-semibold text-text-primary">Stale (21d+)</div>
+            <div className="text-sm font-semibold text-text-primary">Stale (14d+)</div>
             <div className="mt-3 text-3xl font-semibold text-semantic-warning">
-              {loadingMetrics ? '—' : metrics?.kpis.open_stale_21d || 0}
+              {loadingMetrics ? '—' : metrics?.kpis.open_stale_14d || 0}
             </div>
             <div className="mt-2 text-xs text-text-secondary">No activity</div>
           </button>

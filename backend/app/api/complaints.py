@@ -255,8 +255,8 @@ def complaint_metrics(
     # SLA breaches (open)
     open_breaches = [c for c in open_cases if c.ack_breached or c.final_breached]
 
-    # ---------- stale open (21d+) ----------
-    stale_threshold = now - timedelta(days=21)
+    # ---------- stale open (14d+) ----------
+    stale_threshold = now - timedelta(days=14)
     stale_open = []
     for c in open_cases:
         last = _last_activity_at(c)
@@ -344,7 +344,7 @@ def complaint_metrics(
             "open": len(open_cases),
             "my_open": len(my_open),
             "open_sla_breaches": len(open_breaches),
-            "open_stale_21d": len(stale_open),
+            "open_stale_14d": len(stale_open),
         },
         "sla_30d": {
             "ack": {

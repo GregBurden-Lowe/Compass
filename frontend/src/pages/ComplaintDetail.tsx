@@ -160,6 +160,23 @@ export default function ComplaintDetail() {
   const [emailPreviewFileName, setEmailPreviewFileName] = useState('')
   const [emailPreviewDownloadUrl, setEmailPreviewDownloadUrl] = useState('')
 
+  const getCloseErrorMessage = (detail?: unknown) => {
+    if (typeof detail !== 'string') {
+      return 'This complaint cannot be closed yet. Record an outcome and issue the final response first.'
+    }
+
+    if (detail.includes('Outcome required before closing complaint') && detail.includes('Final response required before closing complaint')) {
+      return 'Before you can close this complaint, record the outcome and issue the final response.'
+    }
+    if (detail.includes('Outcome required before closing complaint')) {
+      return 'Before you can close this complaint, record the outcome.'
+    }
+    if (detail.includes('Final response required before closing complaint')) {
+      return 'Before you can close this complaint, issue the final response.'
+    }
+    return detail
+  }
+
   useEffect(() => {
     if (!id) return
     loadComplaint()
@@ -668,37 +685,21 @@ export default function ComplaintDetail() {
   const handleSubmitClose = async () => {
     if (!id || !closeAction) return
 
-    // --- FCA DISP Close Validation ---
-    if (features.require_outbound_before_close && !complaint?.joined_outbound_comm_exists) {
-      // Check existing comms locally (fallback if backend property not yet synced in frontend types, 
-      // but logic should ideally be: backend validation is final, frontend is UX).
-      // We'll check the local list.
-      const hasOutbound = complaint?.communications?.some(
-        (c) =>
-          c.direction === 'outbound' ||
-          c.kind === 'acknowledgement' ||
-          c.kind === 'delay_response_8week' ||
-          c.is_final_response
-      )
-      if (!hasOutbound) {
-        setUiMessage({
-          type: 'error',
-          text: 'Cannot close: An outbound communication (or acknowledgement) is required.',
-        })
-        setShowCloseModal(false)
-        return
-      }
-    }
-
     setClosing(true)
     try {
       await api.post(`/complaints/${id}/${closeAction}`, {
         closed_at: closeDate ? dayjs(closeDate).toISOString() : null,
       })
       setShowCloseModal(false)
+      setUiMessage(null)
       loadComplaint()
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to close complaint', err)
+      setShowCloseModal(false)
+      setUiMessage({
+        type: 'error',
+        text: getCloseErrorMessage(err?.response?.data?.detail),
+      })
     } finally {
       setClosing(false)
     }

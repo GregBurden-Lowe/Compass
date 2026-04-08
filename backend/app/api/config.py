@@ -12,7 +12,6 @@ router = APIRouter(prefix="/config", tags=["config"])
 
 class FeaturesOut(BaseModel):
     require_final_response_evidence: bool = False
-    require_outbound_before_close: bool = False
     enable_deadline_notifications: bool = False
     enable_support_needs: bool = False
     enable_delay_response_kind: bool = False
@@ -30,7 +29,6 @@ def get_features(
     s = get_settings()
     return FeaturesOut(
         require_final_response_evidence=getattr(s, "require_final_response_evidence", False),
-        require_outbound_before_close=getattr(s, "require_outbound_before_close", False),
         enable_deadline_notifications=getattr(s, "enable_deadline_notifications", False),
         enable_support_needs=getattr(s, "enable_support_needs", False),
         enable_delay_response_kind=getattr(s, "enable_delay_response_kind", False),

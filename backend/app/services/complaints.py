@@ -360,18 +360,6 @@ def issue_final_response_with_communication(
     return issue_final_response_at(db, complaint, user_id, issued_at=issued_at)
 
 
-def _has_outbound_comm(complaint: Complaint) -> bool:
-    """True if complaint has at least one outbound communication or acknowledgement or delay response or final response."""
-    for c in complaint.communications or []:
-        if getattr(c, "deleted_at", None):
-            continue
-        if c.direction == CommunicationDirection.outbound:
-            return True
-        if c.kind in ("acknowledgement", "delay_response_8week") or c.is_final_response:
-            return True
-    return bool(complaint.acknowledged_at)
-
-
 def close_complaint(
     db: Session,
     complaint: Complaint,
@@ -379,14 +367,16 @@ def close_complaint(
     *,
     closed_at: Optional[datetime] = None,
     comment: Optional[str] = None,
-) -> Complaint:
+    ) -> Complaint:
+    missing_steps: list[str] = []
     if not complaint.outcome:
-        raise ValueError("Outcome required before closing complaint")
+        missing_steps.append("record the outcome")
     if not complaint.final_response_at:
-        raise ValueError("Final response required before closing complaint")
-    settings = get_settings()
-    if getattr(settings, "require_outbound_before_close", False) and not _has_outbound_comm(complaint):
-        raise ValueError("At least one outbound communication (or acknowledgement / delay / final response) must be logged before closing.")
+        missing_steps.append("issue the final response")
+    if missing_steps:
+        if len(missing_steps) == 1:
+            raise ValueError(f"Before you can close this complaint, {missing_steps[0]}.")
+        raise ValueError(f"Before you can close this complaint, {missing_steps[0]} and {missing_steps[1]}.")
     complaint.status = ComplaintStatus.closed
     closed = closed_at or utcnow()
     complaint.closed_at = closed

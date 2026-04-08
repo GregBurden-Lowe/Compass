@@ -88,7 +88,7 @@ export default function MyTasks() {
       (c) => c.status === 'in_investigation' || c.status === 'acknowledged'
     )
     const staleOpen = complaints.filter(
-      (c) => dayjs().diff(dayjs(getLastActivityAt(c)), 'day') >= 21
+      (c) => dayjs().diff(dayjs(getLastActivityAt(c)), 'day') >= 14
     )
     const desc = unassignedPrefix ? ' Unassigned – assign for action.' : ''
     if (ackOverdue.length > 0) {
@@ -145,8 +145,8 @@ export default function MyTasks() {
     }
     if (staleOpen.length > 0) {
       groups.push({
-        title: unassignedPrefix + 'Not accessed for 21+ days',
-        description: 'No activity recorded in the last 21 days.' + desc,
+        title: unassignedPrefix + 'Not accessed for 14+ days',
+        description: 'No activity recorded in the last 14 days.' + desc,
         icon: '📆',
         colorClass: 'text-text-secondary',
         bgColorClass: 'bg-app',
@@ -467,4 +467,3 @@ export default function MyTasks() {
     </>
   )
 }
-
