@@ -279,7 +279,6 @@ export interface Communication {
 /** FCA DISP feature flags from GET /api/config/features (all default false) */
 export interface FeaturesFlags {
   require_final_response_evidence: boolean
-  require_d1_checklist: boolean
   require_outbound_before_close: boolean
   enable_deadline_notifications: boolean
   enable_support_needs: boolean

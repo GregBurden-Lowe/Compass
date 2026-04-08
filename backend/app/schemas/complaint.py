@@ -133,8 +133,6 @@ class CommunicationOut(CommunicationBase):
     created_at: datetime
     attachments: List[AttachmentOut] = Field(default_factory=list)
     body: Optional[str] = None
-    d1_checklist_confirmed: Optional[List[str]] = None
-    confirmed_in_attachment: bool = False
 
     class Config:
         from_attributes = True
@@ -303,11 +301,9 @@ class EventOut(BaseModel):
 
 
 class FinalResponseRequest(BaseModel):
-    """Optional body for POST /complaints/{id}/final-response when evidence or D1 required."""
+    """Optional body for POST /complaints/{id}/final-response when evidence is required."""
     confirmed_sent_externally: bool = False
     external_send_reason: Optional[str] = None
-    d1_checklist_confirmed: Optional[List[str]] = None
-    confirmed_in_attachment: bool = False
 
 
 class BrokerReferralCreate(BaseModel):
@@ -330,6 +326,5 @@ class BrokerReferralOut(BaseModel):
 
     class Config:
         from_attributes = True
-
 
 

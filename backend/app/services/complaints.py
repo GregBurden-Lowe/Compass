@@ -30,18 +30,6 @@ from app.utils.dates import add_business_days, add_weeks, utcnow
 
 from app.core.config import get_settings
 
-# D1 checklist keys required when REQUIRE_D1_CHECKLIST is on
-D1_REQUIRED_KEYS = [
-    "decision_outcome",
-    "reasons",
-    "redress_summary",
-    "fos_right_to_refer",
-    "fos_6_months",
-    "fos_website",
-    "leaflet_statement",
-    "waiver_statement",
-]
-
 
 def audit_change(
     db: Session,
@@ -67,39 +55,6 @@ def audit_change(
         changed_by_id=user_id,
     )
     db.add(row)
-
-
-def validate_d1_checklist(
-    d1_checklist_confirmed: Optional[List[str]],
-    confirmed_in_attachment: bool,
-    attachment_count: int,
-    require_d1: bool,
-) -> None:
-    """When require_d1 is True, raise ValueError if D1 not satisfied."""
-    if not require_d1:
-        return
-    if confirmed_in_attachment and attachment_count >= 1:
-        return
-    if d1_checklist_confirmed is not None and set(d1_checklist_confirmed) >= set(D1_REQUIRED_KEYS):
-        return
-    raise ValueError(
-        "When D1 checklist is required: either confirm all D1 blocks in the checklist, "
-        "or select 'confirmed in attachment' and attach at least one file."
-    )
-
-
-def get_d1_template_body(settings: Any) -> str:
-    """Default final response body template with placeholders (FCA D1)."""
-    waiver = getattr(settings, "waiver_statement_text", None) or "[Waiver statement - set WAIVER_STATEMENT_TEXT]"
-    website = getattr(settings, "d1_fos_website_url", None) or "https://www.financial-ombudsman.org.uk"
-    return (
-        "Decision: {decision_outcome}\nReasons: {reasons}\n\n"
-        "Redress: {redress_summary}\n\n"
-        "You have the right to refer this complaint to the Financial Ombudsman Service (FOS) within 6 months of the date of this letter.\n"
-        f"FOS website: {website}\n"
-        "Leaflet: We have enclosed / made available the FOS leaflet.\n"
-        f"Waiver: {waiver}"
-    )
 
 
 def get_delay_response_template(settings: Any) -> str:
@@ -350,18 +305,14 @@ def issue_final_response_with_communication(
     confirmed_sent_externally: bool = False,
     external_send_reason: Optional[str] = None,
     attachment_count: int = 0,
-    d1_checklist_confirmed: Optional[List[str]] = None,
-    confirmed_in_attachment: bool = False,
 ) -> Complaint:
     """
     Ensure a Communication record exists for the final response, then issue it.
     When communication is None (POST /final-response): creates a stub Communication.
     When REQUIRE_FINAL_RESPONSE_EVIDENCE: requires attachment_count>=1 or (confirmed_sent_externally and reason len>=20).
-    When REQUIRE_D1_CHECKLIST: requires D1 checklist complete or confirmed_in_attachment + attachment.
     """
     settings = get_settings()
     require_evidence = getattr(settings, "require_final_response_evidence", False)
-    require_d1 = getattr(settings, "require_d1_checklist", False)
 
     if communication is None:
         if require_evidence:
@@ -374,8 +325,6 @@ def issue_final_response_with_communication(
                     "Evidence required: attach at least one file, or set confirmed_sent_externally=true "
                     "with external_send_reason (min 20 characters)."
                 )
-        if require_d1:
-            validate_d1_checklist(d1_checklist_confirmed, confirmed_in_attachment, attachment_count, require_d1=True)
 
         stub_summary = summary or "Final response issued via status action. Evidence stored in attachments or external send."
         # Persist confirmed_sent_externally / external_send_reason in body for audit (no separate DB columns)
@@ -396,8 +345,6 @@ def issue_final_response_with_communication(
             is_internal=False,
             attachment_files=None,
             user_id=user_id,
-            d1_checklist_confirmed=d1_checklist_confirmed,
-            confirmed_in_attachment=confirmed_in_attachment,
         )
     else:
         if require_evidence:
@@ -409,14 +356,6 @@ def issue_final_response_with_communication(
                     "Evidence required: attach at least one file, or set confirmed_sent_externally=true "
                     "with external_send_reason (min 20 characters)."
                 )
-        if require_d1:
-            att_count = len(communication.attachments) if communication.attachments else 0
-            validate_d1_checklist(
-                getattr(communication, "d1_checklist_confirmed", None),
-                getattr(communication, "confirmed_in_attachment", False),
-                att_count,
-                require_d1=True,
-            )
     issued_at = communication.occurred_at if communication is not None else None
     return issue_final_response_at(db, complaint, user_id, issued_at=issued_at)
 
@@ -559,15 +498,7 @@ def add_communication_with_attachments(
     attachment_files: Iterable[dict] | None = None,
     user_id: Optional[str] = None,
     body: Optional[str] = None,
-    d1_checklist_confirmed: Optional[List[str]] = None,
-    confirmed_in_attachment: bool = False,
 ) -> Communication:
-    settings = get_settings()
-    require_d1 = getattr(settings, "require_d1_checklist", False)
-    if is_final_response and require_d1:
-        att_list = list(attachment_files or [])
-        validate_d1_checklist(d1_checklist_confirmed, confirmed_in_attachment, len(att_list), require_d1=True)
-
     if isinstance(channel, str):
         channel = CommunicationChannel(channel)
     if isinstance(direction, str):
@@ -584,8 +515,6 @@ def add_communication_with_attachments(
         user_id=user_id,
         is_final_response=is_final_response,
         is_internal=is_internal,
-        d1_checklist_confirmed=d1_checklist_confirmed,
-        confirmed_in_attachment=confirmed_in_attachment,
     )
     db.add(comm)
     db.flush()
@@ -802,4 +731,3 @@ def update_redress_payment(
             None,
         )
     return payment
-

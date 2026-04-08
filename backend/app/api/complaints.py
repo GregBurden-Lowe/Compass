@@ -865,8 +865,6 @@ def issue_final_response(
             confirmed_sent_externally=body.confirmed_sent_externally if body else False,
             external_send_reason=body.external_send_reason if body else None,
             attachment_count=0,
-            d1_checklist_confirmed=body.d1_checklist_confirmed if body else None,
-            confirmed_in_attachment=body.confirmed_in_attachment if body else False,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
@@ -1016,14 +1014,11 @@ async def add_communication(
     occurred_at: datetime = Form(...),
     files: List[UploadFile] = File(default=[]),
     body: Optional[str] = Form(None),
-    d1_checklist_confirmed: Optional[str] = Form(None),
-    confirmed_in_attachment_str: str = Form("false"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles([UserRole.admin, UserRole.complaints_handler, UserRole.complaints_manager, UserRole.reviewer])),
 ):
     from app.core.config import get_settings
     import logging
-    import json
     import hashlib
     logger = logging.getLogger(__name__)
     
@@ -1031,16 +1026,7 @@ async def add_communication(
         settings = get_settings()
         max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
         enable_hashing = getattr(settings, "enable_attachment_hashing", False)
-        confirmed_in_attachment: bool = confirmed_in_attachment_str.lower() in ("true", "1", "yes", "on")
-        d1_list = None
-        if d1_checklist_confirmed:
-            try:
-                d1_list = json.loads(d1_checklist_confirmed)
-                if not isinstance(d1_list, list):
-                    d1_list = None
-            except (json.JSONDecodeError, TypeError):
-                d1_list = None
-        
+
         file_list: List[UploadFile] = files
         complaint = _get_complaint(db, complaint_id)
         storage_root = Path("storage/attachments")
@@ -1082,8 +1068,6 @@ async def add_communication(
             attachment_files=saved_files,
             user_id=str(current_user.id),
             body=body,
-            d1_checklist_confirmed=d1_list,
-            confirmed_in_attachment=confirmed_in_attachment,
         )
         logger.info(f"Created communication {comm.id} with {len(saved_files)} attachment(s)")
         if effective_is_final_response:

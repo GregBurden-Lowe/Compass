@@ -8,7 +8,7 @@ import { Button, Card, CardHeader, CardTitle, CardBody, Modal, ModalHeader, Moda
 import { StatusChip } from '../components/StatusChip'
 import { EmailPreviewModal } from '../components/EmailPreviewModal'
 import { useAuth } from '../context/AuthContext'
-import { useFeatures, D1_CHECKLIST_KEYS } from '../hooks/useFeatures'
+import { useFeatures } from '../hooks/useFeatures'
 
 type Tab = 'overview' | 'communications' | 'outcome' | 'history'
 type CloseAction = 'close' | 'close-non-reportable'
@@ -89,8 +89,6 @@ export default function ComplaintDetail() {
     is_final_response: false,
     is_internal: false,
   })
-  const [d1Checked, setD1Checked] = useState<Record<string, boolean>>({})
-  const [confirmedInAttachment, setConfirmedInAttachment] = useState(false)
   const [expandedComms, setExpandedComms] = useState<Record<string, boolean>>({})
   const [showFinalResponseConfirm, setShowFinalResponseConfirm] = useState(false)
   const [commFiles, setCommFiles] = useState<FileList | null>(null)
@@ -266,18 +264,6 @@ export default function ComplaintDetail() {
 
     const isFinalResponse = commForm.is_internal ? false : commForm.is_final_response
 
-    if (features.require_d1_checklist && isFinalResponse) {
-      const allChecked = D1_CHECKLIST_KEYS.every((k) => d1Checked[k])
-      if (!confirmedInAttachment && !allChecked) {
-        setCommError('Complete the D1 checklist or select "Confirmed in attachment" and attach a file.')
-        return
-      }
-      if (confirmedInAttachment && (!commFiles || commFiles.length === 0)) {
-        setCommError('When "Confirmed in attachment" is selected, at least one attachment is required.')
-        return
-      }
-    }
-
     if (
       isFinalResponse &&
       (!commFiles || commFiles.length === 0) &&
@@ -299,10 +285,6 @@ export default function ComplaintDetail() {
       formData.append('occurred_at', dayjs(commForm.occurred_at).toISOString())
       formData.append('is_final_response', isFinalResponse.toString())
       formData.append('is_internal', commForm.is_internal.toString())
-      formData.append('confirmed_in_attachment', confirmedInAttachment.toString())
-      if (features.require_d1_checklist && isFinalResponse && D1_CHECKLIST_KEYS.every((k) => d1Checked[k])) {
-        formData.append('d1_checklist_confirmed', JSON.stringify(D1_CHECKLIST_KEYS))
-      }
 
       if (commFiles) {
         Array.from(commFiles).forEach((file) => {
@@ -324,8 +306,6 @@ export default function ComplaintDetail() {
         is_final_response: false,
         is_internal: false,
       })
-      setD1Checked({})
-      setConfirmedInAttachment(false)
       setCommFiles(null)
       loadComplaint()
     } catch (err: any) {
@@ -2708,40 +2688,6 @@ export default function ComplaintDetail() {
                 {commForm.is_final_response && (
                   <div className="rounded-lg border border-semantic-warning/30 bg-semantic-warning/5 p-3 text-sm text-semantic-warning">
                     Final responses should normally have evidence attached (e.g., final response letter/email).
-                  </div>
-                )}
-                {features.require_d1_checklist && commForm.is_final_response && (
-                  <div className="rounded-lg border border-border bg-surface p-3 space-y-2">
-                    <p className="text-xs font-medium text-text-primary">D1 checklist (FCA final response)</p>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={confirmedInAttachment}
-                        onChange={() => setConfirmedInAttachment(!confirmedInAttachment)}
-                        className="h-4 w-4 rounded border-border text-brand"
-                      />
-                      <span className="text-sm">Confirmed in attachment</span>
-                    </label>
-                    {confirmedInAttachment && (
-                      <p className="text-xs text-text-secondary ml-6">
-                        All D1 items satisfied — attach the final response letter as a file below.
-                      </p>
-                    )}
-                    {!confirmedInAttachment && (
-                      <div className="space-y-1">
-                        {D1_CHECKLIST_KEYS.map((key) => (
-                          <label key={key} className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={!!d1Checked[key]}
-                              onChange={() => setD1Checked((prev) => ({ ...prev, [key]: !prev[key] }))}
-                              className="h-4 w-4 rounded border-border text-brand"
-                            />
-                            <span className="text-sm">{key.replace(/_/g, ' ')}</span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 )}
               </>
